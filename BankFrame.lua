@@ -259,6 +259,13 @@ function GFW_BankPanelItemButtonMixin:OnEnter()
 		end
 	
 		self:SetScript("OnUpdate", GFW_BankPanelItemButtonMixin.OnUpdate);
+	elseif self.bankTabID == INVENTORY_FAKE_BAGID then
+		local slotName = T.GetInventorySlotInfoByID(self.containerSlotID)
+		if slotName then
+			GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
+			GameTooltip:SetText(_G[slotName])
+			-- TODO show profession name for profession tools
+		end
 	end
 end
 
@@ -312,9 +319,9 @@ end
 
 function GFW_BankPanelItemButtonMixin:Init(bankType, bankTabID, containerSlotID)
 	self:SetBankType(bankType);
-	self:UpdateVisualsForBankType();
 	self:SetBankTabID(bankTabID);
 	self:SetContainerSlotID(containerSlotID);
+	self:UpdateVisualsForBankType();
 	self.isInitialized = true;
 
 	self:Refresh();
@@ -413,7 +420,11 @@ function GFW_BankPanelItemButtonMixin:UpdateBackgroundForBankType()
 		self.Background:SetPoint("TOPLEFT", -6, 5);
 		self.Background:SetPoint("BOTTOMRIGHT", 6, -7);
 		self.Background:SetAtlas("warband-bank-slot", TextureKitConstants.IgnoreAtlasSize);
-	-- TODO PaperDollFrame slot textures for TabType.Inventory
+	elseif type == TabType.Inventory and self.bankTabID == INVENTORY_FAKE_BAGID then
+		local slotName, texture = T.GetInventorySlotInfoByID(self.containerSlotID)
+		self.Background:SetPoint("TOPLEFT");
+		self.Background:SetPoint("BOTTOMRIGHT");
+		self.Background:SetTexture(texture)
 	else
 		self.Background:SetPoint("TOPLEFT");
 		self.Background:SetPoint("BOTTOMRIGHT");
@@ -431,8 +442,10 @@ local BankPanelEvents = {
 	"INVENTORY_SEARCH_UPDATE",
 	"ITEM_LOCK_CHANGED",
 	"PLAYER_MONEY",
-	"GET_ITEM_INFO_RECEIVED" -- causes UI refresh to fill in quality colors
-	-- TODO guild bank refresh events
+	"GET_ITEM_INFO_RECEIVED", -- causes UI refresh to fill in quality colors
+	"GUILDBANK_UPDATE_TABS",
+	"GUILDBANKBAGSLOTS_CHANGED",
+	"UNIT_INVENTORY_CHANGED"
 };
 
 GFW_BankPanelMixin:GenerateCallbackEvents(

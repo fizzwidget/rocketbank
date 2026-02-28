@@ -120,6 +120,62 @@ function T.CharacterItemCount(itemID, dbCharacter)
 	return bagCount, bankCount
 end
 
+local function pack(...)
+	return { n = select("#", ...), ... } 
+end
+
+local InvSlotNames = {
+	-- [0] = "AMMOSLOT",
+	[1] = "HEADSLOT",
+	[2] = "NECKSLOT",
+	[3] = "SHOULDERSLOT",
+	[4] = "SHIRTSLOT",
+	[5] = "CHESTSLOT",
+	[6] = "WAISTSLOT",
+	[7] = "LEGSSLOT",
+	[8] = "FEETSLOT",
+	[9] = "WRISTSLOT",
+	[10] = "HANDSSLOT",
+	[11] = "FINGER0SLOT",
+	[12] = "FINGER1SLOT",
+	[13] = "TRINKET0SLOT",
+	[14] = "TRINKET1SLOT",
+	[15] = "BACKSLOT",
+	[16] = "MAINHANDSLOT",
+	[17] = "SECONDARYHANDSLOT",
+	-- [18] = "RANGEDSLOT",
+	[19] = "TABARDSLOT",
+	[20] = "PROF0TOOLSLOT",
+	[21] = "PROF0GEAR0SLOT",
+	[22] = "PROF0GEAR1SLOT",
+	[23] = "PROF1TOOLSLOT",
+	[24] = "PROF1GEAR0SLOT",
+	[25] = "PROF1GEAR1SLOT",
+	[26] = "COOKINGTOOLSLOT",
+	[27] = "COOKINGGEAR0SLOT",
+	[28] = "FISHINGTOOLSLOT",
+	[29] = "FISHINGGEAR0SLOT",
+	[30] = "FISHINGGEAR1SLOT",
+}
+T.InvSlotInfo = setmetatable({}, {
+	__index = function(t, slotID)
+		for _, slotName in pairs(InvSlotNames) do
+			local info = pack(GetInventorySlotInfo(slotName))
+			if info[1] == slotID then
+				info[1] = slotName
+				rawset(t, slotID, info)
+				return info
+			end
+		end
+	end,
+})
+function T.GetInventorySlotInfoByID(slotID)
+	local cachedInfo = T.InvSlotInfo[slotID]
+	if cachedInfo then
+		return unpack(cachedInfo) -- name, texture, checkRelic
+	end
+end
+
 ------------------------------------------------------
 -- Crafting Reagent Quality
 ------------------------------------------------------
@@ -129,10 +185,6 @@ if not _G[addonName.."_ReagentQualityCache"] then
 end
 local RQ = _G[addonName.."_ReagentQualityCache"]
 
-local function pack(...)
-	return { n = select("#", ...), ... } 
-end
-	
 T.ItemInfo = setmetatable({}, {
 	__index = function(t, index)
 		local info = pack(C_Item.GetItemInfo(index))
@@ -749,6 +801,9 @@ function T.UpdateDBForInventory()
 			dbCharacter.equipped[inventoryID] = nil
 		end
 	end
+	
+	-- TODO: save character profession (spell) IDs
+	-- so that UI can show which profession slots are which
 	
 	dbCharacter.updated = GetServerTime()
 end
