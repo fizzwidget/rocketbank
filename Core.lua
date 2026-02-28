@@ -741,7 +741,6 @@ function T.UpdateDBForBag(bagID)
 	
 	local inventoryID = C_Container.ContainerIDToInventoryID(bagID)
 	local bagItemLink = GetInventoryItemLink("player", inventoryID)
-	-- BUG sometimes link ends up missing quality & name
 	
 	-- save as empty bag slot if no bag equipped
 	if bagID ~= BACKPACK_CONTAINER and not bagItemLink then
@@ -754,6 +753,26 @@ function T.UpdateDBForBag(bagID)
 		dbCharacter.bags[bagID] = {}
 	end
 	local dbBag = dbCharacter.bags[bagID]
+	
+	if bagID ~= BACKPACK_CONTAINER then
+		local _, linkData, displayText = LinkUtil.ExtractLink(bagItemLink)
+		if displayText == "" then
+			print("[] item detected")
+			if dbBag.link then
+				local itemID = LinkUtil.SplitLinkOptions(linkData)
+				local _, savedLinkData = LinkUtil.ExtractLink(dbBag.link)
+				local savedID = LinkUtil.SplitLinkOptions(savedLinkData)
+				if itemID ~= savedID then
+					local _, itemLink = T.GetItemInfo(linkData)
+					dbBag.link = itemLink
+				end
+			else
+				local _, itemLink = T.GetItemInfo(linkData)
+				dbBag.link = itemLink
+			end 
+		end
+	end
+	
 	dbBag.link = bagItemLink
 	dbBag.count = C_Container.GetContainerNumSlots(bagID)
 	-- print(bagID, ":", dbBag.link, dbBag.count, "slots")
@@ -829,6 +848,7 @@ function T.UpdateDBProfessions()
 		return skillLine, name
 	end
 	
+	T.InitializeDB()
 	local dbCharacter = DB[T.Realm][T.Player]
 	dbCharacter.profSlots = {}
 	

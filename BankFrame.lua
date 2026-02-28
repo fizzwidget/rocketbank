@@ -854,7 +854,7 @@ function GFW_BankPanelMixin:FetchPurchasedBankTabData()
 				end
 			elseif not icon then
 				icon = C_Item.GetItemIconByID(bag.link)
-			end 
+			end
 			local data = {
 				ID = bagID,
 				name = name,
