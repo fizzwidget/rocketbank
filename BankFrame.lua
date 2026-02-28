@@ -328,7 +328,10 @@ function GFW_BankPanelItemButtonMixin:UpdateFilter(pattern)
 	
 	if not isFiltered then
 		-- print("item match in",self:GetBankTabID())
-		GFW_BankPanel:GetSelectedTabData().hasMatch = true
+		local tabData = GFW_BankPanel:GetSelectedTabData()
+		if tabData then
+			tabData.hasMatch = true
+		end
 	end
 end
 
@@ -673,7 +676,8 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 	end
 
 	local tabData = self:GetSelectedTabData()
-
+	if not tabData then return end
+	
 	local numRows = 7;
 	local numSubColumns = 2;
 	local lastColumnStarterButton;
