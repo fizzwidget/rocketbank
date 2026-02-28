@@ -1,10 +1,22 @@
 local addonName, T = ...
 local DB = _G[addonName.."_DB"]
+local GB = _G[addonName.."_Guild"]
 local WB = _G[addonName.."_Warband"]
 local L = _G[addonName.."_Locale"].Text
 
+local TabType = {
+	Bank = "BANK",
+	Inventory = "INVENTORY",
+	Guild = "GUILD_BANK",
+	Warband = "WARBAND",
+}
+
 -- participate in synchronized inventory search
 tinsert(ITEM_SEARCHBAR_LIST, "GFW_BankItemSearchBox")
+
+------------------------------------------------------
+-- support for implementations further down
+------------------------------------------------------
 
 local function MakeBankType(player, realm, type)
 	local list = {player, realm, type}
@@ -15,6 +27,33 @@ local function SplitBankType(bankType)
 	if not bankType then return end
 	return strsplit("|", bankType)
 end
+
+local function ItemFiltered(itemLink, pattern)
+	if pattern == "" then return false end
+	
+	-- quick match for title we always have
+	local _, _, displayText = LinkUtil.ExtractLink(itemLink)
+	local matches = strfind(strlower(displayText), pattern, 1, true)
+	if matches then return not matches end
+
+	-- extra/slower match for tooltip text the client might not have
+	local data = C_TooltipInfo.GetHyperlink(itemLink)
+	if data then
+		for _, line in pairs(data.lines) do
+			local text = strlower(line.leftText.." "..(line.rightText or ""))
+			if strfind(text, pattern, 1, true) then
+				-- print(line.leftText, line.rightText, pattern)
+				matches = true
+				break
+			end
+		end
+	end
+	return not matches
+end
+
+------------------------------------------------------
+-- Below here is customized Blizz BankFrame.lua code
+------------------------------------------------------
 
 GFW_BankFrameMixin = CreateFromMixins(CallbackRegistryMixin);
 
@@ -31,6 +70,7 @@ function GFW_BankFrameMixin:OnLoad()
 	self:InitializeTabSystem();
 end
 
+-- TODO bliz reuse: make this nop, and we can get rid of callback events and custom OnLoad?
 function GFW_BankFrameMixin:OnTitleUpdateRequested(titleText)
 	self:SetTitle(titleText);
 end
@@ -48,23 +88,20 @@ function GFW_BankFrameMixin:GenerateTabs()
 	self.TabIDToBankType = {}
 	
 	id = self:AddNamedTab(BANK, self.BankPanel)
-	self.TabIDToBankType[id] = "BANK"
+	self.TabIDToBankType[id] = TabType.Bank
 	
 	id = self:AddNamedTab(INVENTORY_TOOLTIP, self.BankPanel)
-	self.TabIDToBankType[id] = "INVENTORY"
+	self.TabIDToBankType[id] = TabType.Inventory
 	self.TabSystem:SetTabEnabled(id, false, INVENTORY_TOOLTIP.." not yet implemented")
-	
-	id = self:AddNamedTab(CURRENCY, self.BankPanel)
-	self.TabIDToBankType[id] = "CURRENCY"
-	self.TabSystem:SetTabEnabled(id, false, CURRENCY.." not yet implemented")
+	-- TODO equipped, bags, (maybe) currency as bank-bag tabs in inventory
 
 	id = self:AddNamedTab(GUILD_BANK, self.BankPanel)
-	self.TabIDToBankType[id] = "GUILD_BANK"
-	self.TabSystem:SetTabEnabled(id, false, GUILD_BANK.." not yet implemented")
+	self.TabIDToBankType[id] = TabType.Guild
 
 	id = self:AddNamedTab(ACCOUNT_BANK_PANEL_TITLE, self.BankPanel)
-	self.TabIDToBankType[id] = "WARBAND"
+	self.TabIDToBankType[id] = TabType.Warband
 	
+	-- TODO highlight tabs with search results
 end
 
 function GFW_BankFrameMixin:SetTab(tabID)
@@ -82,7 +119,7 @@ end
 
 function GFW_BankFrameMixin:SelectDefaultTab()
 	for _index, tabID in ipairs(self:GetTabSet()) do
-		if self.TabIDToBankType[tabID] == "BANK" then
+		if self.TabIDToBankType[tabID] == TabType.Bank then
 			self:SetTab(tabID)
 			return
 		end
@@ -175,30 +212,6 @@ function GFW_BankPanelTabMixin:RefreshVisuals()
 	self.SelectedTexture:SetShown(enabled and self:IsSelected());
 	self:RefreshSearchOverlay();
 end
-
-local function ItemFiltered(itemLink, pattern)
-	if pattern == "" then return false end
-	
-	-- quick match for title we always have
-	local _, _, displayText = LinkUtil.ExtractLink(itemLink)
-	local matches = strfind(strlower(displayText), pattern, 1, true)
-	if matches then return not matches end
-
-	-- extra/slower match for tooltip text the client might not have
-	local data = C_TooltipInfo.GetHyperlink(itemLink)
-	if data then
-		for _, line in pairs(data.lines) do
-			local text = strlower(line.leftText.." "..(line.rightText or ""))
-			if strfind(text, pattern, 1, true) then
-				-- print(line.leftText, line.rightText, pattern)
-				matches = true
-				break
-			end
-		end
-	end
-	return not matches
-end
-
 
 function GFW_BankPanelTabMixin:RefreshSearchOverlay()
 	local isFiltered = GFW_BankItemSearchBox:GetText() ~= "" and not self.tabData.hasMatch
@@ -355,12 +368,15 @@ end
 function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
 	local who, realm, type = SplitBankType(self.bankType)
 	local dbBags
-	if type == "WARBAND" then
+	if type == TabType.Warband then
 		dbBags = WB.bags
+	elseif type == TabType.Guild and T.Guild then
+		-- shouldn't get here if unguilded, should fall into no-info path
+		dbBags = GB[realm][who].bags
 	else
-		dbBags = DB[realm][who].bags -- who can be guild for guild bank
+		dbBags = DB[realm][who].bags
 	end
-	local dbInfo = dbBags[self.bankTabID][self.containerSlotID]
+	local dbInfo = dbBags and dbBags[self.bankTabID][self.containerSlotID]
 	
 	if dbInfo then
 		local itemID = GetItemInfoFromHyperlink(dbInfo.l)
@@ -387,7 +403,7 @@ function GFW_BankPanelItemButtonMixin:UpdateBackgroundForBankType()
 	self.Background:ClearAllPoints();
 	
 	local _, _, type = SplitBankType(self.bankType)
-	if type == "WARBAND" then
+	if type == TabType.Warband then
 		self.Background:SetPoint("TOPLEFT", -6, 5);
 		self.Background:SetPoint("BOTTOMRIGHT", 6, -7);
 		self.Background:SetAtlas("warband-bank-slot", TextureKitConstants.IgnoreAtlasSize);
@@ -409,6 +425,7 @@ local BankPanelEvents = {
 	"ITEM_LOCK_CHANGED",
 	"PLAYER_MONEY",
 	"GET_ITEM_INFO_RECEIVED" -- causes UI refresh to fill in quality colors
+	-- TODO guild bank refresh events
 };
 
 GFW_BankPanelMixin:GenerateCallbackEvents(
@@ -529,90 +546,161 @@ function GFW_BankPanelMixin:GetSelectedTabData()
 	return self:GetTabData(self.selectedTabID);
 end
 
-function GFW_BankPanelMixin:CreateCharacterMenu()
+function GFW_BankPanelMixin:RefreshUpdatedText()
+	local who, realm, type = SplitBankType(self.bankType)
+	local db
+	if type == TabType.Warband then
+		db = WB
+	elseif type == TabType.Guild and T.Guild then
+		-- leave nil if unguilded, fall into updated-never path
+		db = GB[realm][who]
+	else
+		db = DB[realm][who]
+	end
+	if not db or not db.updated then
+		self.UpdatedText:SetText(L.Updated:format(NEVER))
+		return
+	end
+	
+	local serverTimeMS = db.updated * 1000 * 1000
+	
+	local function GetFullDate(dateInfo)
+		local weekdayName = CALENDAR_WEEKDAY_NAMES[dateInfo.weekday];
+		local monthName = CALENDAR_FULLDATE_MONTH_NAMES[dateInfo.month]
+		return weekdayName, monthName, dateInfo.monthDay, dateInfo.year
+	end
+	
+	local calendarDate = C_DateAndTime.GetCalendarTimeFromEpoch(serverTimeMS)
+	local dateText = FULLDATE:format(GetFullDate(calendarDate))
+	local timeText = GameTime_GetFormattedTime(calendarDate.hour, calendarDate.minute, true)
+	local fullDate = FULLDATE_AND_TIME:format(dateText, timeText)
+	self.UpdatedText:SetText(L.Updated:format(fullDate))
+end
+
+function GFW_BankPanelMixin:RefreshMenu()
+	-- "who" can mean character or guild based on tabType
 	
 	local _, _, tabType = SplitBankType(self.bankType)
-	if tabType == "WARBAND" then
-		if self.characterMenu then
-			self.characterMenu:Hide()
+	if tabType == TabType.Warband then
+		if self.whoMenu then
+			self.whoMenu:Hide()
 		end
-	elseif self.characterMenu then
-		self.characterMenu:Show()
-		-- this list should be constant within session, so only create it once
+		return
+	elseif self.whoMenu then
+		self.whoMenu:Show()
 	end
 		
-	-- menu entry for current player character always comes first
-	self.characterList = { {T.Player, MakeBankType(T.Player, T.Realm)} }
-	
-	local function listCharactersInRealm(realmName, dbRealm)
-		for characterName in pairs(dbRealm) do
-			if not (characterName == T.Player and realmName == T.Realm) then
-				local displayName = characterName
+	-- menu entry for current player character / guild always comes first
+	local whoList = {}
+	if tabType == TabType.Guild then
+		tinsert(whoList, {T.Guild or "", MakeBankType(T.Guild or "", T.Realm)})
+	else
+		tinsert(whoList, {T.Player, MakeBankType(T.Player, T.Realm)})
+	end
+
+	local function listWhoInRealm(realmName, dbRealm, skip)
+		if not dbRealm then return end
+		for name in pairs(dbRealm) do
+			if not (name == skip and realmName == T.Realm) then
+				local displayName = name
 				if realmName ~= T.Realm then
-					displayName = L.PlayerRealm:format(characterName, realmName)
+					displayName = L.PlayerRealm:format(name, realmName)
 				end
-				tinsert(self.characterList, {displayName, MakeBankType(characterName, realmName)})
+				tinsert(whoList, {displayName, MakeBankType(name, realmName)})
 			end
 		end
 	end
 	
-	-- next comes list other characters on same realm
-	local dbRealm = DB[T.Realm]
-	listCharactersInRealm(T.Realm, dbRealm)
+	-- next comes list of other characters/guilds on same realm
+	if tabType == TabType.Guild then
+		listWhoInRealm(T.Realm, GB[T.Realm], T.Guild)
+	else
+		listWhoInRealm(T.Realm, DB[T.Realm], T.Player)
+	end
 	
-	-- skip current player character and realm to make rest of the list
-	for realmName, dbRealm in pairs(DB) do
+	-- skip current character/guild and realm to make rest of the list
+	local db = DB
+	if tabType == TabType.Guild then
+		db = GB
+	end
+	for realmName, dbRealm in pairs(db) do
 		if realmName ~= T.Realm then
-			listCharactersInRealm(realmName, dbRealm)
+			listWhoInRealm(realmName, dbRealm)
 		end
 	end
 	
-	if not self.characterMenu then
-		self.characterMenu = CreateFrame("DropdownButton", nil, self, "WowStyle1DropdownTemplate")
+	if not self.whoMenu then
+		self.whoMenu = CreateFrame("DropdownButton", nil, self, "WowStyle1DropdownTemplate")
+		self.whoMenu:SetPoint("BOTTOMLEFT", 2, 3)
+		self.whoMenu:SetWidth(180)
 	end
-	self.characterMenu:SetDefaultText(T.Player)
-	self.characterMenu:SetPoint("BOTTOMLEFT", 2, 3)
-	self.characterMenu:SetWidth(180)
-	
-	local function isSelected(characterInfo)
+	if tabType == TabType.Guild then
+		self.whoMenu:SetDefaultText(T.Guild)
+	else
+		self.whoMenu:SetDefaultText(T.Player)
+	end
+		
+	local function isSelected(entryData)
 		-- match playerName|realmName only at start of playerName|realmName|tabType
-		return strfind(self.bankType, characterInfo, 1, true) == 1
+		return strfind(self.bankType, entryData, 1, true) == 1
 	end
-	local function setSelected(characterInfo)
-		self:SetBankType(strjoin("|", characterInfo, tabType))
+	local function setSelected(entryData)
+		self:SetBankType(strjoin("|", entryData, tabType))
 	end
-	-- TODO don't do the convenience version; use AddInitializer to highlight search results
-	-- TODO crib from Edit Mode UI: extra widget in menu to delete characters
-	MenuUtil.CreateRadioMenu(self.characterMenu, isSelected, setSelected, unpack(self.characterList))
 
+	-- TODO highlight search results
+	-- TODO crib from Edit Mode UI: extra widget in menu to delete DB entries
+	-- class colors, faction icons in menu? maybe just faction icons for guilds?
+	
+	self.whoMenu:SetSelectionTranslator(function(selection)
+		if selection.text == "" then
+			return GRAY_FONT_COLOR:WrapTextInColorCode(L.NotInGuild:format(T.Player))
+		else
+			return selection.text
+		end
+	end)
+
+	self.whoMenu:SetupMenu(function(dropdown, root)
+		for _, entry in pairs(whoList) do
+			local displayText, entryData = entry[1], entry[2]
+			local element = root:CreateRadio(displayText, isSelected, setSelected, entryData)
+			element:AddInitializer(function(frame, description, menu)
+				-- placeholder text for unguilded
+				if displayText == "" then
+					frame.fontString:SetText(L.NotInGuild:format(T.Player))
+					frame.fontString:SetTextColor(GRAY_FONT_COLOR:GetRGBA())
+				end
+				
+				-- highlight logged-in player or their guild
+				local who, realm = SplitBankType(entryData)
+				if realm == T.Realm and (who == T.Player or who == T.Guild) then
+					frame.fontString:SetTextColor(LIGHTBLUE_FONT_COLOR:GetRGBA())
+				end
+				
+				-- highlight search results
+				-- if ??? has search results ??? then
+					-- add icon UI-HUD-MicroMenu-Communities-Icon-Notification
+				-- end					
+			end)
+		end
+	end)
 end
 
 function GFW_BankPanelMixin:BankTypeForTabType(tabType)
 	local currentType = self.bankType
-	if tabType == "BANK" or tabType == "INVENTORY" or tabType == "CURRENCY" then
-		-- try to select same player/realm as previous tab
+	if tabType == TabType.Bank or tabType == TabType.Inventory then
+		-- keep player/realm selected if switching player-specific tab types
+		-- otherwise revert to curent player
 		local player, realm, type = SplitBankType(currentType)
-		if type == "GUILD_BANK" then
-			player = nil
-		end
-		if type == "WARBAND" then
+		if type == TabType.Guild or type == TabType.Warband then
 			player = nil
 			realm = nil
 		end
 		return MakeBankType(player or T.Player, realm or T.Realm, tabType)
-	elseif tabType == "GUILD_BANK" then
-		-- try to select same guild/realm as previous tab
-		local guild, realm = SplitBankType(currentType)
-		local guildName = GetGuildInfo("player") -- can return nil if too soon
-		if type ~= "GUILD_BANK" then
-			guild = nil
-		end
-		if type == "WARBAND" then
-			guild = nil
-			realm = nil
-		end
-		return MakeBankType(guild or guildName, realm or T.Realm, tabType)
-	elseif tabType == "WARBAND" then
+	elseif tabType == TabType.Guild then
+		-- just select current player's guild
+		return MakeBankType(T.Guild or "", T.Realm, tabType)
+	elseif tabType == TabType.Warband then
 		return MakeBankType(tabType, tabType, tabType) -- silly but makes stuff easy
 	else
 		error("illegal tabType")
@@ -639,27 +727,8 @@ function GFW_BankPanelMixin:SelectTab(tabID)
 end
 
 function GFW_BankPanelMixin:RefreshBankPanel()
-	local who, realm, type = SplitBankType(self.bankType)
-	local db
-	if type == "WARBAND" then
-		db = WB
-	else
-		db = DB[realm][who] -- who can be guild for guild bank
-	end
-	local serverTimeMS = db.updated * 1000 * 1000
+	self:RefreshUpdatedText()
 	
-	local function GetFullDate(dateInfo)
-		local weekdayName = CALENDAR_WEEKDAY_NAMES[dateInfo.weekday];
-		local monthName = CALENDAR_FULLDATE_MONTH_NAMES[dateInfo.month]
-		return weekdayName, monthName, dateInfo.monthDay, dateInfo.year
-	end
-	
-	local calendarDate = C_DateAndTime.GetCalendarTimeFromEpoch(serverTimeMS)
-	local dateText = FULLDATE:format(GetFullDate(calendarDate))
-	local timeText = GameTime_GetFormattedTime(calendarDate.hour, calendarDate.minute, true)
-	local fullDate = FULLDATE_AND_TIME:format(dateText, timeText)
-	self.UpdatedText:SetText(L.Updated:format(fullDate))
-
 	local noTabSelected = self.selectedTabID == nil;
 	if noTabSelected then
 		-- TODO display something when we have no bank data in DB
@@ -691,7 +760,7 @@ function GFW_BankPanelMixin:Reset()
 	self:UpdateSearchResults()
 	self:RefreshBankTabs();
 	self:RefreshBankPanel();
-	self:CreateCharacterMenu()
+	self:RefreshMenu()
 	self:RequestTitleRefresh();
 	ItemButtonUtil.TriggerEvent(ItemButtonUtil.Event.ItemContextChanged);
 end
@@ -713,12 +782,28 @@ function GFW_BankPanelMixin:FetchPurchasedBankTabData()
 	
 	local who, realm, type = SplitBankType(self.bankType)
 	local dbBags
-	if type == "WARBAND" then
+	local first  = ITEM_INVENTORY_BANK_BAG_OFFSET + 1
+	if type == TabType.Warband then
 		dbBags = WB.bags
+	elseif type == TabType.Guild then
+		if not T.Guild then
+			-- not in a guild, far as we can tell, so leave purchasedBankTabData empty
+			return
+		end
+		first = 1
+		dbBags = GB[realm][who].bags
+		if not dbBags or not dbBags.last then
+			-- haven't seen guild bank
+			return
+		end
+	elseif type == TabType.Inventory then
+		first = 1
+		-- TODO reconsider with inventory tab containing bags + equipped
+		dbBags = { DB[realm][who].equipped } -- list of 1 so loop below can index
 	else
-		dbBags = DB[realm][who].bags -- who can be guild for guild bank
+		dbBags = DB[realm][who].bags
 	end
-	for bagID = ITEM_INVENTORY_BANK_BAG_OFFSET + 1, dbBags.last do
+	for bagID = first, dbBags.last do
 		local bag = dbBags[bagID]
 		if bag then
 			local link = bag.link -- is just a name if a bank bag
@@ -817,10 +902,13 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 	-- search inactive tabs only enough to see if there's a match
 	local who, realm, type = SplitBankType(self.bankType)
 	local dbBags
-	if type == "WARBAND" then
+	if type == TabType.Warband then
 		dbBags = WB.bags
+	elseif type == TabType.Guild then
+		-- nil if unguilded; won't enter loop because purchasedBankTabData empty
+		dbBags = T.Guild and GB[realm][who].bags
 	else
-		dbBags = DB[realm][who].bags -- who can be guild for guild bank
+		dbBags = DB[realm][who].bags
 	end
 	for _, tabData in ipairs(self.purchasedBankTabData) do
 		tabData.hasMatch = nil
@@ -868,8 +956,10 @@ end
 function GFW_BankPanelMoneyFrameMixin:OnEnter()
 	
 	local who, realm, type = SplitBankType(self:GetActiveBankType())
-	if type == "WARBAND" then
-		return -- no extra info to add up
+	if type == TabType.Warband or type == TabType.Guild then
+		-- nothing to total in warband
+		-- doesn't really make sense to total up different guilds
+		return
 	end
 
 	local function AddMoneyLine(name, money)
@@ -898,6 +988,7 @@ function GFW_BankPanelMoneyFrameMixin:OnEnter()
 	AddMoneyLine(TOTAL, total)
 	for index, line in pairs(lines) do
 		AddMoneyLine(line[1], line[2])
+		-- TODO use number font and make it line up somehow
 	end
 	GameTooltip:Show();
 
@@ -934,6 +1025,8 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:OnLoad()
 end
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:DisableMoneyPopupFunctionality()
+	-- no clicking buttons for money pickup
+	-- no mousing over them either because that breaks parent frame's tooltip
 	self:EnableMouse(false)
 	self.CopperButton:EnableMouse(false)
 	self.SilverButton:EnableMouse(false)
@@ -943,12 +1036,14 @@ end
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:Refresh()
 	local who, realm, type = SplitBankType(self:GetActiveBankType())
 	local db
-	if type == "WARBAND" then
+	if type == TabType.Warband then
 		db = WB
+	elseif type == TabType.Guild and T.Guild then
+		db = GB[realm][who]
 	else
-		db = DB[realm][who] -- who can be guild for guild bank
+		db = DB[realm][who]
 	end
 	
-	MoneyFrame_Update(self:GetName(), db.money)
+	MoneyFrame_Update(self:GetName(), db and db.money or 0)
 end
 
