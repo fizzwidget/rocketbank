@@ -179,8 +179,13 @@ end
 
 local function ItemFiltered(itemLink, pattern)
 	if pattern == "" then return false end
+	
+	-- quick match for title we always have
+	local _, _, displayText = LinkUtil.ExtractLink(itemLink)
+	local matches = strfind(strlower(displayText), pattern, 1, true)
+	if matches then return not matches end
 
-	local matches 
+	-- extra/slower match for tooltip text the client might not have
 	local data = C_TooltipInfo.GetHyperlink(itemLink)
 	if data then
 		for _, line in pairs(data.lines) do
