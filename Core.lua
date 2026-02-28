@@ -115,7 +115,9 @@ function T.CharacterItemCount(itemID, dbCharacter)
 		end
 	end
 
-	-- TODO check character's equipped inventory
+	-- check character's equipped inventory
+	-- add it to bagCount, because that's what GetItemCount does for current player
+	bagCount = bagCount + CountInBag(dbCharacter.equipped)
 	
 	return bagCount, bankCount
 end
