@@ -1063,20 +1063,44 @@ DeriveMixinMembers(GFW_BankPanelMoneyFrameMixin, BankPanelMoneyFrameMixin, {
 function GFW_BankPanelMoneyFrameMixin:OnEnter()
 	
 	local who, realm, type = SplitBankType(self:GetActiveBankType())
-	if type == TabType.Warband or type == TabType.Guild then
-		-- nothing to total in warband
+	if type == TabType.Guild then
 		-- doesn't really make sense to total up different guilds
 		return
 	end
+	
+	-- simplify bliz GetMoneyString
+	-- always show copper, always separate thousands
+	local function FormatMoney(money)
+		local SILVER_AMOUNT_TEXTURE = gsub(SILVER_AMOUNT_TEXTURE, "^%%d", "%%02d")
+		local COPPER_AMOUNT_TEXTURE = gsub(COPPER_AMOUNT_TEXTURE, "^%%d", "%%02d")
+		
+		local goldString, silverString, copperString;
+		local gold = floor(money / (COPPER_PER_SILVER * SILVER_PER_GOLD));
+		local silver = floor((money - (gold * COPPER_PER_SILVER * SILVER_PER_GOLD)) / COPPER_PER_SILVER);
+		local copper = mod(money, COPPER_PER_SILVER);
+	
+		if ( CVarCallbackRegistry:GetCVarValueBool("colorblindMode") or ENABLE_COLORBLIND_MODE == "1" ) then
+			goldString = FormatLargeNumber(gold)..GOLD_AMOUNT_SYMBOL;
+			silverString = silver..SILVER_AMOUNT_SYMBOL;
+			copperString = copper..COPPER_AMOUNT_SYMBOL;
+		else
+			goldString = GOLD_AMOUNT_TEXTURE_STRING:format(FormatLargeNumber(gold), 0, 0);
+			silverString = SILVER_AMOUNT_TEXTURE:format(silver, 0, 0);
+			copperString = COPPER_AMOUNT_TEXTURE:format(copper, 0, 0);
+		end
+	
+		return strjoin(" ", goldString, silverString, copperString)	
+	end
 
-	local function AddMoneyLine(name, money)
-		local moneyText = GetMoneyString(money, true)
-		GameTooltip_AddColoredDoubleLine(GameTooltip, name, moneyText, NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR)
+	local function AddMoneyLine(name, money, isHeader)
+		local moneyText = FormatMoney(money)
+		local textColor = isHeader and NORMAL_FONT_COLOR or HIGHLIGHT_FONT_COLOR
+		GameTooltip_AddColoredDoubleLine(GameTooltip, name, moneyText, textColor, HIGHLIGHT_FONT_COLOR)
 	end
 	
 	-- collect money per character
 	local lines = {}
-	local total = 0
+	local total = WB.money
 	for realmName, dbRealm in pairs(DB) do
 		for characterName, dbCharacter in pairs(dbRealm) do
 			local displayName = characterName
@@ -1092,13 +1116,19 @@ function GFW_BankPanelMoneyFrameMixin:OnEnter()
 	sort(lines, function(a, b) return a[2] > b[2] end)
 
 	GameTooltip:SetOwner(self, "ANCHOR_BOTTOM");
-	AddMoneyLine(TOTAL, total)
+	AddMoneyLine(TOTAL, total, true)
+	GameTooltip_AddBlankLineToTooltip(GameTooltip)
 	for index, line in pairs(lines) do
 		AddMoneyLine(line[1], line[2])
-		-- TODO use number font and make it line up somehow
-		-- also GetMoneyString has no option to show zero copper, which also makes alignment hard
 	end
+	GameTooltip_AddBlankLineToTooltip(GameTooltip)
+	AddMoneyLine(ACCOUNT_BANK_PANEL_TITLE, WB.money)
 	GameTooltip:Show();
+	
+	for i = 1, GameTooltip:NumLines() do
+		local text = _G["GameTooltipTextRight"..i]
+		text:SetFontObject(NumberFontNormal)
+	end
 
 end
 
