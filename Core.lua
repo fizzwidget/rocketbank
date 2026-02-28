@@ -31,6 +31,13 @@ T.Realm = strtrim(GetRealmName())
 T.Player = UnitName("player")
 -- T.Guild set lazily, not available at load
 
+function T.SetupSettings(settings)
+	-- TODO nicer settings UI
+	settings:Checkbox("BagsOnOnePage", false)
+	settings:Checkbox("SpatialBags", false)
+	settings:Checkbox("GuildTooltip", false)
+end
+
 ------------------------------------------------------
 -- Bank preview frame launch conveniences
 ------------------------------------------------------

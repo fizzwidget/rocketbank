@@ -12,6 +12,7 @@
 # core
 Localization.lua
 Core.lua
+Settings.lua
 
 # tooltips
 Tooltip.lua

@@ -35,7 +35,7 @@ end
 function T.CharacterItemCount(itemID, dbCharacter)
     local function CountInBag(dbBag)
         local count = 0
-        for slot = 1, dbBag.count do
+        for slot = 1, dbBag.count or 0 do
             local bagItemInfo = dbBag[slot]
             if bagItemInfo then
                 local bagItemID = GetItemInfoFromHyperlink(bagItemInfo.l)
@@ -56,7 +56,7 @@ function T.CharacterItemCount(itemID, dbCharacter)
     end
     -- check character's bank
     local bankCount = 0
-    for bagID = ITEM_INVENTORY_BANK_BAG_OFFSET + 1, dbCharacter.bags.last do
+    for bagID = ITEM_INVENTORY_BANK_BAG_OFFSET + 1, dbCharacter.bags.last or 0 do
         local bag = dbCharacter.bags[bagID]
         if bag then
             bankCount = bankCount + CountInBag(bag)
@@ -65,7 +65,9 @@ function T.CharacterItemCount(itemID, dbCharacter)
 
     -- check character's equipped inventory
     -- add it to bagCount, because that's what GetItemCount does for current player
-    bagCount = bagCount + CountInBag(dbCharacter.equipped)
+    if dbCharacter.equipped then
+        bagCount = bagCount + CountInBag(dbCharacter.equipped)
+    end
     
     return bagCount, bankCount
 end
@@ -241,13 +243,28 @@ function T:TooltipAddItemInfo(tooltip, itemID)
         end
     end
     
-    -- warband bank last
+    -- warband bank
     if inWarband > 0 then
         local warbandLine = L.TooltipLinePlayer:format(ACCOUNT_BANK_PANEL_TITLE, inWarband)
         GameTooltip_AddColoredLine(tooltip, warbandLine, BRIGHTBLUE_FONT_COLOR)
     end
     
-    -- TODO option to include guild bank, count all or only withdrawable
+    -- guild banks
+    if T.Settings.GuildTooltip then
+        for realmName, dbRealm in pairs(GB) do
+            for guildName, dbGuild in pairs(dbRealm) do
+                local inGuildBank = T.CharacterItemCount(itemID, dbGuild)
+                    if inGuildBank > 0 then
+                    local formattedName = ("<%s>"):format(guildName)
+                    if realmName ~= T.Realm then
+                        formattedName = L.PlayerRealm:format(formattedName, realmName)
+                    end
+                    local guildLine = L.TooltipLinePlayer:format(formattedName, inGuildBank)
+                    GameTooltip_AddColoredLine(tooltip, guildLine, BRIGHTBLUE_FONT_COLOR)
+                end
+            end
+        end
+    end
 
 end
 

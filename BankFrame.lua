@@ -124,12 +124,11 @@ function GFW_BankFrameMixin:OnLoad()
 	TabSystemOwnerMixin.OnLoad(self);
 	self:InitializeTabSystem();
 	
-	-- TODO switch to T.Settings keys after bringing in Settings.lua
 	local function IsSelected(key)
-		return T[key]
+		return T.Settings[key]
 	end
 	local function SetSelected(key)
-		T[key] = not T[key]
+		T.Settings[key] = not T.Settings[key]
 		self.BankPanel:RefreshBankPanel()
 	end
 	
@@ -138,6 +137,7 @@ function GFW_BankFrameMixin:OnLoad()
 	self.SettingsDropdown:SetupMenu(function(dropdown, root)	
 		root:CreateCheckbox(L.BagsOnOnePage, IsSelected, SetSelected, "BagsOnOnePage");
 		root:CreateCheckbox(L.SpatialBags, IsSelected, SetSelected, "SpatialBags");
+		root:CreateCheckbox(L.GuildTooltip, IsSelected, SetSelected, "GuildTooltip");
 	end)
 
 end
