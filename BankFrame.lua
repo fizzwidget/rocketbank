@@ -909,6 +909,10 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 	local tabData = self:GetSelectedTabData()
 	if not tabData then return end
 	
+	-- TODO different layouts for equipped, bags
+	
+	-- bigger todo later: combine multiple bags on one panel 
+
 	local numRows = 7;
 	local numSubColumns = 2;
 	local lastColumnStarterButton;

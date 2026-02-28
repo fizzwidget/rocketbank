@@ -731,6 +731,7 @@ function T.UpdateDBForBag(bagID)
 	
 	local inventoryID = C_Container.ContainerIDToInventoryID(bagID)
 	local bagItemLink = GetInventoryItemLink("player", inventoryID)
+	-- BUG sometimes link ends up missing quality & name
 	
 	-- save as empty bag slot if no bag equipped
 	if bagID ~= BACKPACK_CONTAINER and not bagItemLink then
