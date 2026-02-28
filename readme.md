@@ -15,9 +15,8 @@ Built with spare parts from official bank machinery certified by the Undermine C
     - bank 
     - gold
     - guild bank
-    - TODO equipped inventory
-    - TODO currency
-    - warband
+    - equipped inventory
+    - warband bank
     
 - Item tooltips show how many of that item you have, and where
     - For crafting reagents with quality levels, counts and summarizes all qualities
@@ -27,9 +26,6 @@ Built with spare parts from official bank machinery certified by the Undermine C
 - Bank panel to show the cached contents of your (and your alts') bank, bags, gold, etc
     - Search field integrated with base UI bank/bag search, searches across characters
     - Open the bank panel with `/bank`, minimap addon compartment, or key binding
-    - TODO bags
-    - TODO equipped inventory
-    - TODO currency
     
 - Is neither a conspiracy to embezzle from faction governments nor a rocketway construction scheme to exploit settlers looking for housing in new lands
 

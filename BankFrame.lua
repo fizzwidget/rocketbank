@@ -11,6 +11,8 @@ local TabType = {
 	Warband = "WARBAND",
 }
 
+local INVENTORY_FAKE_BAGID = -1
+
 -- participate in synchronized inventory search
 tinsert(ITEM_SEARCHBAR_LIST, "GFW_BankItemSearchBox")
 
@@ -92,8 +94,7 @@ function GFW_BankFrameMixin:GenerateTabs()
 	
 	id = self:AddNamedTab(INVENTORY_TOOLTIP, self.BankPanel)
 	self.TabIDToBankType[id] = TabType.Inventory
-	self.TabSystem:SetTabEnabled(id, false, INVENTORY_TOOLTIP.." not yet implemented")
-	-- TODO equipped, bags, (maybe) currency as bank-bag tabs in inventory
+	-- TODO maybe currency as bank-bag tab in inventory?
 
 	id = self:AddNamedTab(GUILD_BANK, self.BankPanel)
 	self.TabIDToBankType[id] = TabType.Guild
@@ -376,7 +377,12 @@ function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
 	else
 		dbBags = DB[realm][who].bags
 	end
-	local dbInfo = dbBags and dbBags[self.bankTabID][self.containerSlotID]
+	local dbInfo
+	if type == TabType.Inventory and self.bankTabID == INVENTORY_FAKE_BAGID then
+		dbInfo = DB[realm][who].equipped[self.containerSlotID]
+	else
+		dbInfo = dbBags and dbBags[self.bankTabID][self.containerSlotID]
+	end
 	
 	if dbInfo then
 		local itemID = GetItemInfoFromHyperlink(dbInfo.l)
@@ -407,6 +413,7 @@ function GFW_BankPanelItemButtonMixin:UpdateBackgroundForBankType()
 		self.Background:SetPoint("TOPLEFT", -6, 5);
 		self.Background:SetPoint("BOTTOMRIGHT", 6, -7);
 		self.Background:SetAtlas("warband-bank-slot", TextureKitConstants.IgnoreAtlasSize);
+	-- TODO PaperDollFrame slot textures for TabType.Inventory
 	else
 		self.Background:SetPoint("TOPLEFT");
 		self.Background:SetPoint("BOTTOMRIGHT");
@@ -795,12 +802,17 @@ function GFW_BankPanelMixin:SelectFirstAvailableTab()
 	end
 end
 
+local SpecialBags = {
+	[BACKPACK_CONTAINER] = { BAG_NAME_BACKPACK, "Interface/Buttons/Button-Backpack-Up" },
+	[INVENTORY_FAKE_BAGID] = { BAG_FILTER_EQUIPMENT, "Interface/Icons/inv_shirt_01" }
+}
 function GFW_BankPanelMixin:FetchPurchasedBankTabData()	
 	self.purchasedBankTabData = {}
 	
 	local who, realm, type = SplitBankType(self.bankType)
 	local dbBags
-	local first  = ITEM_INVENTORY_BANK_BAG_OFFSET + 1
+	local first = ITEM_INVENTORY_BANK_BAG_OFFSET + 1
+	local last -- set by some tabTypes, otherwise dbBags.last
 	if type == TabType.Warband then
 		dbBags = WB.bags
 	elseif type == TabType.Guild then
@@ -815,20 +827,33 @@ function GFW_BankPanelMixin:FetchPurchasedBankTabData()
 			return
 		end
 	elseif type == TabType.Inventory then
-		first = 1
-		-- TODO reconsider with inventory tab containing bags + equipped
-		dbBags = { DB[realm][who].equipped } -- list of 1 so loop below can index
+		first = INVENTORY_FAKE_BAGID
+		last = NUM_TOTAL_EQUIPPED_BAG_SLOTS
+		dbBags = DB[realm][who].bags
 	else
 		dbBags = DB[realm][who].bags
 	end
-	for bagID = first, dbBags.last do
-		local bag = dbBags[bagID]
+	for bagID = first, last or dbBags.last do
+		local bag
+		if type == TabType.Inventory and bagID == INVENTORY_FAKE_BAGID then
+			bag = DB[realm][who].equipped
+		else
+			bag = dbBags[bagID]
+		end
 		if bag then
-			local link = bag.link -- is just a name if a bank bag
-			local icon = bag.icon or C_Item.GetItemIconByID(link)
+			local name = bag.link -- is just a name if a bank tab
+			local icon = bag.icon
+			if not name and type == TabType.Inventory then
+				local info = SpecialBags[bagID]
+				if info then
+					name, icon = unpack(info)
+				end
+			elseif not icon then
+				icon = C_Item.GetItemIconByID(bag.link)
+			end 
 			local data = {
 				ID = bagID,
-				name = link,
+				name = name,
 				icon = icon,
 				slots = bag.count
 			}
@@ -916,7 +941,11 @@ end
 
 function GFW_BankPanelMixin:UpdateSearchResults()
 	local pattern = strlower(GFW_BankItemSearchBox:GetText())
-			
+	
+	-- TODO search across bankType tabTypes
+	-- TODO search across characters/guilds
+	-- will these searches be slow? can we do them as background tasks of some sort?
+
 	-- search inactive tabs only enough to see if there's a match
 	local who, realm, type = SplitBankType(self.bankType)
 	local dbBags
@@ -932,6 +961,9 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 		tabData.hasMatch = nil
 		if pattern ~= "" and tabData.ID ~= self:GetSelectedTabID() then
 			local dbBag = dbBags[tabData.ID]
+			if type == TabType.Inventory and bagID == INVENTORY_FAKE_BAGID then
+				dbBag = DB[realm][who].equipped
+			end
 			for slot = 1, dbBag.count do
 				local bagItemInfo = dbBag[slot]
 				if bagItemInfo and not ItemFiltered(bagItemInfo.l, pattern) then
