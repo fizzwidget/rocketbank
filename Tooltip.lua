@@ -336,3 +336,39 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
     end
 end
 
+------------------------------------------------------
+-- Currency tooltip 
+------------------------------------------------------
+
+function T.OnTooltipSetCurrency(tooltip, data)
+    if tooltip:IsTooltipType(Enum.TooltipDataType.Currency) then
+        local tooltipData = tooltip:GetPrimaryTooltipData()
+        local currencyID = tooltipData.id
+
+        T:TooltipAddCurrencyInfo(tooltip, currencyID)
+    end
+end
+
+TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Currency, T.OnTooltipSetCurrency)
+
+function T:TooltipAddCurrencyInfo(tooltip, currencyID)        
+    -- check other characters' totals in saved DB
+    for realmName, dbRealm in pairs(DB) do
+        for characterName, dbCharacter in pairs(dbRealm) do
+            -- skip player; builtin currency tooltips show player's amount
+            if characterName ~= T.Player then
+                local amount = dbCharacter.currency and dbCharacter.currency[currencyID]
+                if amount and amount > 0 then
+                    if realmName ~= T.Realm then
+                        characterName = L.PlayerRealm:format(characterName, realmName)
+                    end
+                    local characterLine = L.TooltipLinePlayer:format(characterName, FormatLargeNumber(amount))
+                    -- TODO add indicator if transferable
+                    if characterLine then
+                        GameTooltip_AddColoredLine(tooltip, characterLine, BRIGHTBLUE_FONT_COLOR)
+                    end
+                end
+            end
+        end
+    end
+end

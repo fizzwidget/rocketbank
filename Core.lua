@@ -175,8 +175,8 @@ DB = {
 				}
 				last = 6, -- containerID of last bank tab
 			},
-			currency = {
-				-- TODO save currency
+			currency = { -- skips isAccountWide currencies
+				[391] = 1, -- currencyID = quantity
 			},
 			equipped = {
 				-- inventory slot
@@ -200,6 +200,10 @@ WB = {
 	bags = { ... } -- same as character bags but bagID 12+
 	money = 10000, -- same as character
 	updated = 1755412000, -- same as character
+	currency = { -- isAccountWide currencies
+		[391] = 1, -- currencyID = quantity
+	},
+
 }
 	
 ]]
@@ -212,6 +216,7 @@ function Events:PLAYER_ENTERING_WORLD()
 	T.UpdateDBMoney()
 	T.UpdateWarbankMoney()
 	T.UpdateDBProfessions()
+	T.UpdateDBCurrency()
 end
 
 function Events:GUILD_ROSTER_UPDATE()
@@ -297,6 +302,10 @@ end
 
 function Events:GUILDBANK_UPDATE_MONEY()
 	T.UpdateGuildMoney()
+end
+
+function Events:CURRENCY_DISPLAY_UPDATE()
+	T.UpdateDBCurrency()
 end
 
 ------------------------------------------------------
@@ -713,6 +722,26 @@ function T.UpdateGuildMoney()
 	dbGuild.money = GetGuildBankMoney()
 	dbGuild.updated = GetServerTime()
 	-- print("updated guild money", dbGuild.money)
+end
+
+local MAX_CURRENCIES = 5000 -- highest currency id is 3400-ish as of 12.0 alpha 10/2025
+function T.UpdateDBCurrency()
+	T.InitializeDB()
+	local dbCharacter = DB[T.Realm][T.Player]
+	if not dbCharacter.currency then 
+		dbCharacter.currency = {}
+	end
+	
+	for id = 1, MAX_CURRENCIES do
+	   local data = C_CurrencyInfo.GetCurrencyInfo(id)
+	   -- this saves way more currencies than ever show up in the UI
+	   -- but we only use them for tooltips so we don't have to worry what to list
+	   -- iconFileID helps filter out those that don't appear in UI (but not all of them)
+	   -- don't save account wide currency, because builtin tooltips always have it
+	   if data and data.discovered and not data.isAccountWide and data.iconFileID then
+			dbCharacter.currency[id] = data.quantity
+	   end
+	end
 end
 
 function T.ProfessionName(inventoryID, character, realm)
