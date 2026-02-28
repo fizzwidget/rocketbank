@@ -450,8 +450,11 @@ function Events:BAG_UPDATE_DELAYED()
 	T.ProcessBagUpdateQueue()
 end
 
-function Events:UNIT_INVENTORY_CHANGED(unit)
-	if unit ~= "player" then return end
+function Events:PLAYER_EQUIPMENT_CHANGED(equipmentSlot, hasCurrent)
+	T.UpdateDBForInventory()
+end
+
+function Events:PROFESSION_EQUIPMENT_CHANGED(skillLineID, isTool)
 	T.UpdateDBForInventory()
 end
 

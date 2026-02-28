@@ -440,7 +440,6 @@ end
 
 GFW_BankPanelMixin = CreateFromMixins(CallbackRegistryMixin);
 DeriveMixinMembers(GFW_BankPanelMixin, BankPanelMixin, {
-	"OnShow",
 	"MarkDirty",
 	"OnUpdate",
 	"OnBankTabClicked",
@@ -465,7 +464,8 @@ local BankPanelEvents = {
 	"GET_ITEM_INFO_RECEIVED", -- causes UI refresh to fill in quality colors
 	"GUILDBANK_UPDATE_TABS",
 	"GUILDBANKBAGSLOTS_CHANGED",
-	"UNIT_INVENTORY_CHANGED"
+	"PLAYER_EQUIPMENT_CHANGED",
+	"PROFESSION_EQUIPMENT_CHANGED"
 };
 
 GFW_BankPanelMixin:GenerateCallbackEvents(
@@ -492,6 +492,13 @@ function GFW_BankPanelMixin:OnLoad()
 	self.itemButtonPool = CreateFramePool("ItemButton", self, "GFW_BankItemButtonTemplate", BankItemButtonResetter);
 
 	self.selectedTabID = nil;
+end
+
+function GFW_BankPanelMixin:OnShow()
+	CallbackRegistrantMixin.OnShow(self);
+	FrameUtil.RegisterFrameForEvents(self, BankPanelEvents);
+
+	self:Reset();
 end
 
 function GFW_BankPanelMixin:OnHide()
