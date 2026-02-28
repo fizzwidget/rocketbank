@@ -1,6 +1,6 @@
 # Fizzwidget Rocketbank Mobilier
+- by Gazmik Fizzwidget
 - http://github.com/fizzwidget/bank
-- http://fizzwidget.com
 
 ## Introduction
 
