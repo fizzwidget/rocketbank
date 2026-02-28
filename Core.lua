@@ -305,12 +305,36 @@ function T.UpdateDBForAllBags(includeBank)
 			lastBagID = bagID			
 		end
 		DB[T.Realm][T.Player].bags.last = lastBagID
+		
+		-- TODO warbank
+	end
+end
+
+function T.BagIDIsBankType(bagID, bankType)
+	local tabIDs = C_Bank.FetchPurchasedBankTabIDs(bankType)
+	for _, tabID in pairs(tabIDs) do
+		if tabID == bagID then
+			return true
+		end
 	end
 end
 
 function T.UpdateDBForBag(bagID)
-	if bagID > ITEM_INVENTORY_BANK_BAG_OFFSET and not T.BankIsOpen then
-		-- don't update bank bags when not at bank
+	if T.BagIDIsBankType(bagID, Enum.BankType.Account) then
+		-- print("don't save warband bank", bagID) -- for now
+		-- it'll need different storage so it's not repeated across characters
+		-- and reading item counts doesn't need it
+		return
+	end 
+
+	if T.BagIDIsBankType(bagID, Enum.BankType.Guild) then
+		-- print("don't save guild bank", bagID) -- for now
+		-- it'll need different storage so it's not repeated across characters
+		return
+	end
+
+	if T.BagIDIsBankType(bagID, Enum.BankType.Character) and not T.BankIsOpen then
+		-- print("don't save bank when not at bank", bagID)
 		return
 	end
 	
