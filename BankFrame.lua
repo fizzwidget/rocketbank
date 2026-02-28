@@ -1069,7 +1069,7 @@ function GFW_BankPanelMixin:GenerateEquippedItemSlots(tabData)
 			end
 		end
 		self.rowLabels[numRows]:SetText(label)
-		self.rowLabels[numRows]:Show() -- BUG not always showing?
+		self.rowLabels[numRows]:Show() -- TODO not always showing?
 		numRows = numRows + 1
 		return firstButton
 	end

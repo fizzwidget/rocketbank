@@ -380,7 +380,6 @@ end
 	
 hooksecurefunc(C_CurrencyInfo, "RequestCurrencyFromAccountCharacter", T.RequestCurrencyFromAccountCharacter)
 
--- TODO this or trust CURRENCY_TRANSFER_SUCCESS?
 function Events:CHAT_MSG_CURRENCY(message, ...)
 	if not T.PendingCurrencyTransfer then return end
 	-- TODO can't test chat msg in combat, secret value -- is this enough to avoid it?
@@ -394,8 +393,9 @@ function Events:CHAT_MSG_CURRENCY(message, ...)
 		for _, data in pairs(currencyData) do
 			if data.characterGUID == T.PendingCurrencyTransfer.sourceCharacterGUID then
 				local characterName, realmName = strsplit("-", data.fullCharacterName)
-				-- print(characterName, realmName, "after:", data.quantity)
-				-- TODO account for transfers with conversion cost
+
+				-- accounts for transfers with conversion cost
+				-- because we're reading source character's amount after the transfer
 				local dbCharacter = DB[realmName] and DB[realmName][characterName]
 				assert(dbCharacter)
 				if not dbCharacter.currency then
