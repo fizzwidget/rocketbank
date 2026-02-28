@@ -7,10 +7,15 @@ local L = _G[addonName.."_Locale"].Text
 local TabType = {
 	Bank = "BANK",
 	Inventory = "INVENTORY",
-	Guild = "GUILD_BANK",
+	Guild = "GUILD",
 	Warband = "WARBAND",
 }
-
+L.TabType = {
+	BANK = BANK,
+	INVENTORY = INVENTORY_TOOLTIP,
+	GUILD = GUILD_BANK,
+	WARBAND = ACCOUNT_BANK_PANEL_TITLE,
+}
 local INVENTORY_FAKE_BAGID = -1
 
 -- participate in synchronized inventory search
@@ -79,6 +84,7 @@ end
 
 -- TODO investigate ways to reuse bliz code without inheriting template/mixin
 -- GFW_BankFrameMixin.InitializeTabSystem = BankFrameMixin.InitializeTabSystem etc?
+-- except now we've customized this function, but maybe others can do that
 function GFW_BankFrameMixin:InitializeTabSystem()
 	self.TabSystem.minTabWidth = self.TabSystem.minTabWidth + 16
 	self:SetTabSystem(self.TabSystem);
@@ -89,27 +95,20 @@ function GFW_BankFrameMixin:GenerateTabs()
 	
 	local id
 	self.TabIDToBankType = {}
+	-- TODO currency as own tab, or bank-bag tab in inventory?
 	
-	id = self:AddNamedTab(BANK, self.BankPanel)
-	self.TabIDToBankType[id] = TabType.Bank
-	
-	id = self:AddNamedTab(INVENTORY_TOOLTIP, self.BankPanel)
-	self.TabIDToBankType[id] = TabType.Inventory
-	-- TODO maybe currency as bank-bag tab in inventory?
-
-	id = self:AddNamedTab(GUILD_BANK, self.BankPanel)
-	self.TabIDToBankType[id] = TabType.Guild
-
-	id = self:AddNamedTab(ACCOUNT_BANK_PANEL_TITLE, self.BankPanel)
-	self.TabIDToBankType[id] = TabType.Warband
-	
-	-- TODO highlight tabs with search results
+	for _, tabType in pairs({TabType.Bank, TabType.Inventory, TabType.Guild, TabType.Warband}) do
+		local id = self:AddNamedTab(L.TabType[tabType], self.BankPanel)
+		self.TabIDToBankType[id] = tabType
+	end
 end
 
 function GFW_BankFrameMixin:UpdateTabIndicators()
 	for tabID, tabType in pairs(self.TabIDToBankType) do
 		local button = self.TabSystem:GetTabButton(tabID)
 		if not button.SearchHighlight then
+			-- TODO replace with a frame so it can have a tooltip
+			-- indicating which players/guilds found matches
 			button.SearchHighlight = button:CreateTexture()
 			button.SearchHighlight:SetPoint("RIGHT", button.Text)
 			button.SearchHighlight:SetSize(16, 16)
@@ -696,12 +695,30 @@ function GFW_BankPanelMixin:RefreshMenu()
 			return selection.text
 		end
 	end)
-
+	
+	-- TODO indicator on dropdown button if menu has search results
 	self.whoMenu:SetupMenu(function(dropdown, root)
+		local searchResults = {}
+		for bankTabType, whoRealm in pairs(self.matchingTabTypes) do
+			if not searchResults[whoRealm] then
+				searchResults[whoRealm] = {}
+			end
+			tinsert(searchResults[whoRealm], bankTabType)
+		end
 		for _, entry in pairs(whoList) do
 			local displayText, entryData = entry[1], entry[2]
-			local element = root:CreateRadio(displayText, isSelected, setSelected, entryData)
-			element:AddInitializer(function(frame, description, menu)
+			local radio = root:CreateRadio(displayText, isSelected, setSelected, entryData)
+			if searchResults[entryData] then
+				radio:SetTooltip(function(tooltip, element)
+					GameTooltip_SetTitle(tooltip, KBASE_SEARCH_RESULTS)
+					if tabType ~= TabType.Guild then
+						for _, bankTabType in pairs(searchResults[entryData]) do
+							GameTooltip_AddHighlightLine(tooltip, L.TabType[bankTabType])
+						end
+					end
+				end)
+			end
+			radio:AddInitializer(function(frame, description, menu)
 				-- placeholder text for unguilded
 				if displayText == "" then
 					frame.fontString:SetText(L.NotInGuild:format(T.Player))
@@ -730,9 +747,7 @@ function GFW_BankPanelMixin:RefreshMenu()
 
 				end
 				
-				-- TODO highlight search results
-				-- local isSearchResult = true -- TEMP
-				if isSearchResult then
+				if searchResults[entryData] then
 					frame.searchResult = frame:AttachTexture()
 					frame.searchResult:SetSize(16, 16)
 					frame.searchResult:SetPoint("LEFT", frame.fontString, "RIGHT")
@@ -978,9 +993,8 @@ end
 function GFW_BankPanelMixin:UpdateSearchResults()
 	local pattern = strlower(GFW_BankItemSearchBox:GetText())
 	
-	-- TODO search across characters/guilds
-	-- will these searches be slow? can we do them as background tasks of some sort? should we debounce input?
-
+	-- will searches be slow? do them as background tasks somehow? debounce input?
+	
 	local function BagContainsMatch(bagData, pattern)
 		for slot = 1, (bagData.count or 0) do
 			local bagItemInfo = bagData[slot]
@@ -1000,46 +1014,73 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 			return DB[realm][who].bags
 		end
 	end
-	
-	-- search non-selected tabTypes
-	local currentWho, currentRealm, currentTabType = SplitBankType(self.bankType)
-	self.matchingTabTypes = {}
-	for _, tabType in pairs(TabType) do
-		if pattern ~= "" and tabType ~= currentTabType then
-			local searchWho, searchRealm = SplitBankType(self:BankTypeForTabType(tabType))
-			if tabType == TabType.Guild then
-				searchWho = T.Guild
-			end
-			if tabType == TabType.Inventory and BagContainsMatch(DB[searchRealm][searchWho].equipped, pattern) then
-				self.matchingTabTypes[tabType] = true
-				-- print("match in equipped")
-				-- no need to check bags if match in equipped 
+			
+	local function ContainsMatch(pattern, who, realm, tabType)
+		if tabType == TabType.Inventory and BagContainsMatch(DB[realm][who].equipped, pattern) then
+			return true
+			-- print("match in equipped")
+			-- no need to check bags if match in equipped 
+		else
+			local dbBags = BagCollection(who, realm, tabType)
+			local first, last
+			if tabType == TabType.Inventory then
+				first = 0
+				last = NUM_TOTAL_EQUIPPED_BAG_SLOTS
+			elseif tabType == TabType.Guild then
+				first = 1
 			else
-				local dbBags = BagCollection(searchWho, searchRealm, tabType)
-				local first, last
-				if tabType == TabType.Inventory then
-					first = 0
-					last = NUM_TOTAL_EQUIPPED_BAG_SLOTS
-				elseif tabType == TabType.Guild then
-					first = 1
-				else
-					first = ITEM_INVENTORY_BANK_BAG_OFFSET + 1
-				end
-				for bagID = first, last or dbBags.last do
-					local dbBag = dbBags[bagID]
-					if dbBag and BagContainsMatch(dbBag, pattern) then
-						self.matchingTabTypes[tabType] = true
-						-- print("match in", bagID, tabType)
-						-- stop at first matching bag
-						-- only need to know if at least one match in this tabType
-						break
-					end
+				first = ITEM_INVENTORY_BANK_BAG_OFFSET + 1
+			end
+			for bagID = first, last or dbBags.last do
+				local dbBag = dbBags[bagID]
+				if dbBag and BagContainsMatch(dbBag, pattern) then
+					return true
+					-- print("match in", bagID, tabType)
+					-- stop at first matching bag
+					-- only need to know if at least one match in this tabType
 				end
 			end
 		end
 	end
+		
+	-- search non-selected tabTypes and players/guilds (selected needs deeper search)
+	local currentWho, currentRealm, currentTabType = SplitBankType(self.bankType)
+	self.matchingTabTypes = {}
+	if pattern ~= "" then
+		-- first loop over non-selected guilds 
+		for searchRealm, dbRealm in pairs(GB) do
+			for searchGuild, dbGuild in pairs(dbRealm) do
+				if not (searchRealm == currentRealm and searchGuild == currentWho and currentTabType == TabType.Guild) then
+					if ContainsMatch(pattern, searchGuild, searchRealm, TabType.Guild) then
+						self.matchingTabTypes[TabType.Guild] = MakeBankType(searchGuild, searchRealm)
+					end
+				end
+			end
+		end
+		
+		-- loop over non-selected players for TabType.Inventory, TabType.Bank
+		for searchRealm, dbRealm in pairs(DB) do
+			for searchCharacter, dbCharacter in pairs(dbRealm) do
+				for _, tabType in pairs({TabType.Inventory, TabType.Bank}) do
+					if not (searchRealm == currentRealm and searchCharacter == currentWho and currentTabType == tabType) then
+						if ContainsMatch(pattern, searchCharacter, searchRealm, tabType) then
+							self.matchingTabTypes[tabType] = MakeBankType(searchCharacter, searchRealm)
+						end
+					end
+				end
+			end
+		end
+		
+		-- check warband only once 
+		-- (unless it's selected tabType, then we search it further below)
+		if currentTabType ~= TabType.Warband then
+			if ContainsMatch(pattern, "", "", TabType.Warband) then
+				self.matchingTabTypes[TabType.Warband] = true
+			end
+		end
+	end
 	
-	-- search inactive tabs in current type
+	-- search inactive bank/bag tabs in current type+realm+player/guild
 	local dbBags = BagCollection(currentWho, currentRealm, currentTabType)
 	for _, tabData in ipairs(self.purchasedBankTabData) do
 		tabData.hasMatch = nil
@@ -1048,19 +1089,20 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 			if currentTabType == TabType.Inventory and bagID == INVENTORY_FAKE_BAGID then
 				dbBag = DB[currentRealm][currentWho].equipped
 			end
+			assert(dbBag)
 			if BagContainsMatch(dbBag, pattern) then
 				tabData.hasMatch = true
-				self.matchingTabTypes[currentTabType] = true
+				self.matchingTabTypes[currentTabType] = MakeBankType(currentWho, currentRealm)
 				-- print("match in",tabData.ID)
 			end
 		end
 	end
 	
-	-- search active tab by item slots
+	-- search active bank/bag tab by item slots
 	for itemButton in self:EnumerateValidItems() do
 		if itemButton.itemInfo then
 			if itemButton:UpdateFilter(pattern) and pattern ~= "" then
-				self.matchingTabTypes[currentTabType] = true
+				self.matchingTabTypes[currentTabType] = MakeBankType(currentWho, currentRealm)
 			end
 		end
 	end
