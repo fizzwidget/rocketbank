@@ -123,6 +123,23 @@ function GFW_BankFrameMixin:OnLoad()
 
 	TabSystemOwnerMixin.OnLoad(self);
 	self:InitializeTabSystem();
+	
+	-- TODO switch to T.Settings keys after bringing in Settings.lua
+	local function IsSelected(key)
+		return T[key]
+	end
+	local function SetSelected(key)
+		T[key] = not T[key]
+		self.BankPanel:RefreshBankPanel()
+	end
+	
+	self.SettingsDropdown = CreateFrame("DropdownButton", nil, self.TitleContainer, "UIPanelIconDropdownButtonTemplate")
+	self.SettingsDropdown:SetPoint("RIGHT", self.CloseButton, "LEFT", -4, 0)
+	self.SettingsDropdown:SetupMenu(function(dropdown, root)	
+		root:CreateCheckbox(L.BagsOnOnePage, IsSelected, SetSelected, "BagsOnOnePage");
+		root:CreateCheckbox(L.SpatialBags, IsSelected, SetSelected, "SpatialBags");
+	end)
+
 end
 
 function GFW_BankFrameMixin:InitializeTabSystem()
@@ -930,14 +947,12 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 		self.MissingDataText:Hide()
 	end
 	
-	if tabType == TabType.Inventory then
-		if self.selectedTabID == INVENTORY_FAKE_BAGID then
-			self:GenerateEquippedItemSlots(tabData)
-		elseif T.BagsOnOnePage then
-			self:GenerateAllBagsItemSlots()
-		else
-			self:GenerateBagItemSlots(tabData)
-		end
+	if tabType == TabType.Inventory and self.selectedTabID == INVENTORY_FAKE_BAGID then
+		self:GenerateEquippedItemSlots(tabData)
+	elseif tabType == TabType.Inventory and T.BagsOnOnePage then
+		self:GenerateAllBagsItemSlots()
+	elseif tabType == TabType.Inventory and T.SpatialBags then
+		self:GenerateBagItemSlots(tabData)
 	else
 		self:GenerateBankTabItemSlots(tabData)
 	end

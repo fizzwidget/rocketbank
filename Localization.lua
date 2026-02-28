@@ -32,6 +32,9 @@ L.MissingBank = "No bank data cached for %1$s.|n|n %2$s will not show bank infor
 L.MissingGuild = "No guild bank data cached for %1$s.|n|n %2$s will not show guild bank information until a character that guild visits the guild bank."
 L.DeleteTooltip = "Delete cached data"
 
+L.BagsOnOnePage = "Show bags together"
+L.SpatialBags = "Arrange bags visually"
+
 -- addonName, playerName + realmName
 L.DeleteCharacter = "Delete this addon‘s data cache for the character |n%1$s?|n|n %2$s will not show information from their inventory, bank, etc until the next time you log into that character." 
 -- addonName, guildName + realmName
