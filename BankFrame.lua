@@ -905,9 +905,68 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 	end
 	
 	-- TODO different layouts for equipped, bags
-	
 	-- bigger todo later: combine multiple bags on one panel 
+	if tabType == TabType.Inventory then
+		if self.selectedTabID == INVENTORY_FAKE_BAGID then
+			self:GenerateEquippedItemSlots(tabData)
+		else
+			self:GenerateBagItemSlots(tabData)
+		end
+	else
+		self:GenerateBankTabItemSlots(tabData)
+	end
 
+end
+
+function GFW_BankPanelMixin:GenerateEquippedItemSlots(tabData)
+	-- TEMP
+	self:GenerateBankTabItemSlots(tabData)
+end
+
+function GFW_BankPanelMixin:GenerateBagItemSlots(tabData)
+	local numColumns = 4
+	local xSpacing, ySpacing = 4, 4
+	local offsetSlots = tabData.slots % numColumns
+	local lastRowStarterButton;
+	local lastCreatedButton;
+	local currentRow = 1;
+	for containerSlotID = 1, tabData.slots do
+		local button = self.itemButtonPool:Acquire();
+			
+		local isFirstButton = containerSlotID == 1;
+		local needNewRow = ((containerSlotID + offsetSlots) % numColumns) == 1;
+		if isFirstButton then
+			local xOffset, yOffset = 26, -57;
+			if currentRow == 1 then
+				-- bags with a less-than-full row indent it to the right
+				xOffset = xOffset + (xSpacing + button:GetWidth()) * offsetSlots
+			end
+			button:SetPoint("TOPLEFT", self, "TOPLEFT", currentRow * xOffset, yOffset);
+			lastRowStarterButton = button;
+		elseif needNewRow then
+			currentRow = currentRow + 1;
+	
+			local xOffset, yOffset = 0, -ySpacing;
+			if currentRow == 2 then
+				-- if first row was less-than-full, outdent back to normal for the rest
+				xOffset = xOffset - (xSpacing + button:GetWidth()) * offsetSlots
+			end
+			button:SetPoint("TOPLEFT", lastRowStarterButton, "BOTTOMLEFT", xOffset, yOffset);
+			lastRowStarterButton = button;
+		else
+			local xOffset, yOffset = xSpacing, 0;
+			button:SetPoint("TOPLEFT", lastCreatedButton, "TOPRIGHT", xOffset, yOffset);
+		end
+		
+		button:Init(self.bankType, self.selectedTabID, containerSlotID);
+		button:Show();
+	
+		lastCreatedButton = button;
+	end
+end
+
+-- unchanged from bliz bank
+function GFW_BankPanelMixin:GenerateBankTabItemSlots(tabData)
 	local numRows = 7;
 	local numSubColumns = 2;
 	local lastColumnStarterButton;
@@ -924,7 +983,7 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 			lastColumnStarterButton = button;
 		elseif needNewColumn then
 			currentColumn = currentColumn + 1;
-
+	
 			local xOffset, yOffset = 8, 0;
 			-- We reached the last subcolumn, time to add space for a new "big" column
 			local startNewBigColumn = (currentColumn % numSubColumns == 1);
@@ -940,13 +999,9 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 		
 		button:Init(self.bankType, self.selectedTabID, containerSlotID);
 		button:Show();
-
+	
 		lastCreatedButton = button;
 	end
-end
-
-function GFW_BankPanelMixin:GenerateBankTabItemSlots(tabData)
-	
 end
 
 function GFW_BankPanelMixin:UpdateSearchResults()
