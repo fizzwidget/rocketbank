@@ -35,6 +35,45 @@ local function SplitBankType(bankType)
 	return strsplit("|", bankType)
 end
 
+local function CompareCharacters(a, b)
+	local aName, aRealm = strsplit("|", a)
+	if aRealm == T.Realm and aName == T.Player then
+		return true -- current player always first
+	end
+	local bName, bRealm = strsplit("|", b)
+	if (aRealm == T.Realm) ~= (bRealm == T.Realm) then
+		return aRealm == T.Realm -- current realm always first
+	end
+	
+	local aData = DB[aRealm][aName]
+	local bData = DB[bRealm][bName]
+	return aData.updated > bData.updated
+end
+
+local function CompareGuilds(a, b)
+	local aName, aRealm = strsplit("|", a)
+	if aRealm == T.Realm and aName == T.Guild then
+		return true -- current guild always first
+	end
+	
+	local bName, bRealm = strsplit("|", b)
+	if (aRealm == T.Realm) ~= (bRealm == T.Realm) then
+		return aRealm == T.Realm -- current realm always first
+	end
+	
+	local aData = GB[aRealm][aName]
+	local bData = GB[bRealm][bName]
+	return aData.updated > bData.updated
+end
+
+local function DisplayName(name, realmName)
+	local displayName = name
+	if realmName ~= T.Realm then
+		displayName = L.PlayerRealm:format(name, realmName)
+	end
+	return displayName
+end
+
 local function ItemFiltered(itemLink, pattern)
 	if pattern == "" then return false end
 	
@@ -107,17 +146,43 @@ function GFW_BankFrameMixin:UpdateTabIndicators()
 	for tabID, tabType in pairs(self.TabIDToBankType) do
 		local button = self.TabSystem:GetTabButton(tabID)
 		if not button.SearchHighlight then
-			-- TODO replace with a frame so it can have a tooltip
-			-- indicating which players/guilds found matches
-			button.SearchHighlight = button:CreateTexture()
+			button.SearchHighlight = CreateFrame("Frame", nil, button)
 			button.SearchHighlight:SetPoint("RIGHT", button.Text)
 			button.SearchHighlight:SetSize(16, 16)
-			button.SearchHighlight:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification")
+			
+			button.SearchHighlight.Icon = button.SearchHighlight:CreateTexture()
+			button.SearchHighlight.Icon:SetAllPoints()
+			button.SearchHighlight.Icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification")
+			
+			-- tooltip indicating which players/guilds have matches
+			button.SearchHighlight:SetScript("OnEnter", function(frame)
+				local matches = {} -- invert unique-key -> true table
+				for entryData in pairs(frame.matches) do
+					tinsert(matches, entryData)
+				end
+				if tabType == TabType.Guild then
+					sort(matches, CompareGuilds)
+				else
+					sort(matches, CompareCharacters)
+				end
+				
+				GameTooltip:SetOwner(frame, "ANCHOR_BOTTOMRIGHT")
+				GameTooltip:SetText(KBASE_SEARCH_RESULTS)
+				for _, entryData in pairs(matches) do
+					local text = DisplayName(SplitBankType(entryData))
+					GameTooltip_AddHighlightLine(GameTooltip, text)
+				end
+				GameTooltip:Show()
+			end)
+			button.SearchHighlight:SetScript("OnLeave", GameTooltip_Hide)
 		end
 		if self.BankPanel.matchingTabTypes[tabType] then
 			button.SearchHighlight:Show()
+			button.SearchHighlight.tabType = tabType
+			button.SearchHighlight.matches = self.BankPanel.matchingTabTypes[tabType]
 		else
 			button.SearchHighlight:Hide()
+			button.SearchHighlight.matches = nil
 		end
 	end
 end
@@ -666,6 +731,15 @@ function GFW_BankPanelMixin:RefreshMenu()
 			listWhoInRealm(realmName, dbRealm)
 		end
 	end
+	if tabType == TabType.Guild then
+		sort(whoList, function(a, b)
+			CompareGuilds(a[2], b[2])
+		end)
+	else
+		sort(whoList, function(a, b)
+			CompareCharacters(a[2], b[2])
+		end)
+	end
 	
 	if not self.whoMenu then
 		self.whoMenu = CreateFrame("DropdownButton", nil, self, "WowStyle1DropdownTemplate")
@@ -696,21 +770,39 @@ function GFW_BankPanelMixin:RefreshMenu()
 		end
 	end)
 	
-	-- TODO indicator on dropdown button if menu has search results
-	self.whoMenu:SetupMenu(function(dropdown, root)
-		local searchResults = {}
-		for bankTabType, whoRealm in pairs(self.matchingTabTypes) do
+	local searchResults = {}
+	for bankTabType, results in pairs(self.matchingTabTypes) do
+		for whoRealm in pairs(results) do
 			if not searchResults[whoRealm] then
 				searchResults[whoRealm] = {}
 			end
 			tinsert(searchResults[whoRealm], bankTabType)
 		end
+	end
+	
+	-- indicator on dropdown button if menu has search results
+	if not self.whoMenu.SearchHighlight then
+		self.whoMenu.SearchHighlight = CreateFrame("Frame", nil, self.whoMenu)
+		self.whoMenu.SearchHighlight:SetPoint("RIGHT", self.whoMenu.Text)
+		self.whoMenu.SearchHighlight:SetSize(16, 16)
+		
+		self.whoMenu.SearchHighlight.Icon = self.whoMenu.SearchHighlight:CreateTexture()
+		self.whoMenu.SearchHighlight.Icon:SetAllPoints()
+		self.whoMenu.SearchHighlight.Icon:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification")
+	end
+	if TableHasAnyEntries(searchResults) then
+		self.whoMenu.SearchHighlight:Show()
+	else
+		self.whoMenu.SearchHighlight:Hide()
+	end	
+	
+	self.whoMenu:SetupMenu(function(dropdown, root)
 		for _, entry in pairs(whoList) do
 			local displayText, entryData = entry[1], entry[2]
 			local radio = root:CreateRadio(displayText, isSelected, setSelected, entryData)
 			if searchResults[entryData] then
 				radio:SetTooltip(function(tooltip, element)
-					GameTooltip_SetTitle(tooltip, KBASE_SEARCH_RESULTS)
+					tooltip:SetText(KBASE_SEARCH_RESULTS)
 					if tabType ~= TabType.Guild then
 						for _, bankTabType in pairs(searchResults[entryData]) do
 							GameTooltip_AddHighlightLine(tooltip, L.TabType[bankTabType])
@@ -1042,17 +1134,28 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 			end
 		end
 	end
-		
+	
+	self.matchingTabTypes = {}
+	local function AddMatch(tabType, who, realm)
+		if not self.matchingTabTypes[tabType] then
+			self.matchingTabTypes[tabType] = {}
+		end
+		if tabType == TabType.Warband then 
+			return -- no further match data for this tab
+		end
+		local match = MakeBankType(who, realm)
+		self.matchingTabTypes[tabType][match] = true
+	end
+	
 	-- search non-selected tabTypes and players/guilds (selected needs deeper search)
 	local currentWho, currentRealm, currentTabType = SplitBankType(self.bankType)
-	self.matchingTabTypes = {}
 	if pattern ~= "" then
 		-- first loop over non-selected guilds 
 		for searchRealm, dbRealm in pairs(GB) do
 			for searchGuild, dbGuild in pairs(dbRealm) do
 				if not (searchRealm == currentRealm and searchGuild == currentWho and currentTabType == TabType.Guild) then
 					if ContainsMatch(pattern, searchGuild, searchRealm, TabType.Guild) then
-						self.matchingTabTypes[TabType.Guild] = MakeBankType(searchGuild, searchRealm)
+						AddMatch(TabType.Guild, searchGuild, searchRealm)
 					end
 				end
 			end
@@ -1064,7 +1167,7 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 				for _, tabType in pairs({TabType.Inventory, TabType.Bank}) do
 					if not (searchRealm == currentRealm and searchCharacter == currentWho and currentTabType == tabType) then
 						if ContainsMatch(pattern, searchCharacter, searchRealm, tabType) then
-							self.matchingTabTypes[tabType] = MakeBankType(searchCharacter, searchRealm)
+							AddMatch(tabType, searchCharacter, searchRealm)
 						end
 					end
 				end
@@ -1075,7 +1178,7 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 		-- (unless it's selected tabType, then we search it further below)
 		if currentTabType ~= TabType.Warband then
 			if ContainsMatch(pattern, "", "", TabType.Warband) then
-				self.matchingTabTypes[TabType.Warband] = true
+				AddMatch(TabType.Warband)
 			end
 		end
 	end
@@ -1092,7 +1195,7 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 			assert(dbBag)
 			if BagContainsMatch(dbBag, pattern) then
 				tabData.hasMatch = true
-				self.matchingTabTypes[currentTabType] = MakeBankType(currentWho, currentRealm)
+				AddMatch(currentTabType, currentWho, currentRealm)
 				-- print("match in",tabData.ID)
 			end
 		end
@@ -1102,13 +1205,14 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 	for itemButton in self:EnumerateValidItems() do
 		if itemButton.itemInfo then
 			if itemButton:UpdateFilter(pattern) and pattern ~= "" then
-				self.matchingTabTypes[currentTabType] = MakeBankType(currentWho, currentRealm)
+				AddMatch(currentTabType, currentWho, currentRealm)
 			end
 		end
 	end
 
 	-- show indicators on tabs
 	GFW_BankFrame:UpdateTabIndicators()
+	self:RefreshMenu()
 end
 
 function GFW_BankPanelMixin:EnumerateValidItems()
@@ -1166,6 +1270,7 @@ function GFW_BankPanelMoneyFrameMixin:OnEnter()
 	for index, line in pairs(lines) do
 		AddMoneyLine(line[1], line[2])
 		-- TODO use number font and make it line up somehow
+		-- also GetMoneyString has no option to show zero copper, which also makes alignment hard
 	end
 	GameTooltip:Show();
 
@@ -1221,6 +1326,6 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:Refresh()
 		db = DB[realm][who]
 	end
 	
-	MoneyFrame_Update(self:GetName(), db and db.money or 0)
+	MoneyFrame_Update(self:GetName(), db and db.money or 0, true)
 end
 
