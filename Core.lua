@@ -386,6 +386,7 @@ function Events:PLAYER_ENTERING_WORLD()
 	T.UpdateDBForInventory()
 	T.UpdateDBMoney()
 	T.UpdateWarbankMoney()
+	T.UpdateDBProfessions()
 end
 
 function Events:GUILD_ROSTER_UPDATE()
@@ -452,6 +453,10 @@ end
 function Events:UNIT_INVENTORY_CHANGED(unit)
 	if unit ~= "player" then return end
 	T.UpdateDBForInventory()
+end
+
+function Events:SKILL_LINES_CHANGED()
+	T.UpdateDBProfessions()	
 end
 
 function Events:PLAYER_MONEY()
@@ -806,11 +811,37 @@ function T.UpdateDBForInventory()
 			dbCharacter.equipped[inventoryID] = nil
 		end
 	end
-	
-	-- TODO: save character profession (spell) IDs
-	-- so that UI can show which profession slots are which
-	
+		
 	dbCharacter.updated = GetServerTime()
+end
+
+function T.UpdateDBProfessions()
+	local function GetProfessionID(index)
+		if not index then return nil end
+		
+		local name, texture, rank, maxRank, numSpells, spellOffset, skillLine, rankModifier, specializationIndex, specializationOffset, skillLineName = GetProfessionInfo(index)
+		assert(skillLine)
+		local info = C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLine)
+		assert(name == info.professionName)
+		return skillLine, name
+	end
+	
+	local dbCharacter = DB[T.Realm][T.Player]
+	dbCharacter.profSlots = {}
+	
+	local spellbookTabIndexes = {GetProfessions()}
+	for i, profIndex in pairs(spellbookTabIndexes) do
+		if i > 2 then break end -- only care about primary professions
+		local name, texture, rank, maxRank, numSpells, spellOffset, skillLine, rankModifier, specializationIndex, specializationOffset, skillLineName = GetProfessionInfo(profIndex)
+		assert(skillLine)
+		local info = C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLine)
+		assert(name == info.professionName)
+		local slots = C_TradeSkillUI.GetProfessionSlots(info.profession)
+		for _, slot in pairs(slots) do
+			dbCharacter.profSlots[slot] = skillLine
+			-- print(slot, skillLine, name, T.GetInventorySlotInfoByID(slot))
+		end
+	end
 end
 
 function T.UpdateDBMoney()

@@ -301,7 +301,18 @@ function GFW_BankPanelItemButtonMixin:OnEnter()
 		if slotName then
 			GameTooltip:SetOwner(self, "ANCHOR_RIGHT");
 			GameTooltip:SetText(_G[slotName])
-			-- TODO show profession name for profession tools
+			
+			-- show profession name for profession gear
+			local who, realm = SplitBankType(self.bankType)
+			local dbSlotInfo = DB[realm][who].profSlots
+			local skillLine = dbSlotInfo and dbSlotInfo[self.containerSlotID]
+			if skillLine then
+				local info = C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLine)
+				if info then
+					GameTooltip_AddHighlightLine(GameTooltip, info.professionName)
+					GameTooltip:Show()
+				end
+			end
 		end
 	end
 end
