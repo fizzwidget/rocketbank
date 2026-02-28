@@ -96,41 +96,12 @@ if not _G[addonName.."_ReagentQualityCache"] then
 end
 local RQ = _G[addonName.."_ReagentQualityCache"]
 
--- TEST TEMP
-local ProblematicItemIDs = {
-   [189143] = 1, [188658] = 1, [190311] = 1, --Draconium Ore
-   [190395] = 1, [190396] = 1, [190394] = 1, --Serevite Ore 
-   [192852] = 1, [192853] = 1, [192855] = 1, --Alexstraszite
-   [192862] = 1, [192863] = 1, [192865] = 1, --Neltharite
-   [193208] = 1, [193210] = 1, [193211] = 1, --Resilient Leather
-   [194817] = 1, [194819] = 1, [194820] = 1  --Howling Rune
-}
-
-function FindTest()
-   for k in pairs(ProblematicItemIDs) do
-	  print(FindAllReagentQualityItems(k))
-   end
-end
-
-function FindTestAsync()
-   for k in pairs(ProblematicItemIDs) do
-	  FindReagentQualityAsync(k)
-   end
-end
-
-function CacheTest()
-   for k in pairs(ProblematicItemIDs) do
-	  CacheReagentQualityItems(k)
-   end
-end
--- END TEST TEMP
-
 local ITEM_INFO_RETRY_DELAY = 1.0
 T.ReagentQualityQueue = {}
 function CacheReagentQualityItems(itemID)
 	if RQ[itemID] then
 		local name, link = C_Item.GetItemInfo(itemID)
-		print("already cached", link, unpack(RQ[itemID]))
+		-- print("already cached", link, unpack(RQ[itemID]))
 		T.ReagentQualityQueue[itemID] = nil
 		return
 	end
@@ -141,10 +112,10 @@ function CacheReagentQualityItems(itemID)
 		RQ[qualities[3]] = qualities
 		
 		local name, link = C_Item.GetItemInfo(itemID)
-		print("cached", link, unpack(qualities))
+		-- print("cached", link, unpack(qualities))
 		T.ReagentQualityQueue[itemID] = nil
 	else
-		print("queued check for", itemID)
+		-- print("queued check for", itemID)
 		T.ReagentQualityQueue[itemID] = 1
 		if not T.ReagentQualityRetryTimer then
 			T.ReagentQualityRetryTimer = C_Timer.NewTicker(ITEM_INFO_RETRY_DELAY, T.ProcessReagentQualityQueue)
@@ -159,11 +130,11 @@ function T.ProcessReagentQualityQueue(timer)
 		CacheReagentQualityItems(itemID)
 	end
 	if count == 0 then
-		print("queue empty, canceling timer")
+		-- print("queue empty, canceling timer")
 		T.ReagentQualityRetryTimer:Cancel()
 		T.ReagentQualityRetryTimer = nil
 	else
-		print("queue processed", count)
+		-- print("queue processed", count)
 	end
 end
 
