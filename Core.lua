@@ -316,15 +316,14 @@ function T.UpdateDBForAllBags(includeBank)
 	for bagID = 0, NUM_TOTAL_EQUIPPED_BAG_SLOTS do
 		T.UpdateDBForBag(bagID)
 	end
-	
+	local bankTabIDs = C_Bank.FetchPurchasedBankTabIDs(Enum.BankType.Character)
+	local lastBagID = max(unpack(bankTabIDs))
+	DB[T.Realm][T.Player].bags.last = lastBagID
+
 	if includeBank and T.BankIsOpen then
-		local bankTabIDs = C_Bank.FetchPurchasedBankTabIDs(Enum.BankType.Character)
-		local lastBagID = NUM_TOTAL_EQUIPPED_BAG_SLOTS
 		for _, bagID in pairs(bankTabIDs) do
 			T.UpdateDBForBag(bagID)	
-			lastBagID = bagID			
 		end
-		DB[T.Realm][T.Player].bags.last = lastBagID
 		
 		-- TODO warbank
 	end
