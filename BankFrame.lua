@@ -97,33 +97,34 @@ local function ItemFiltered(itemLink, pattern)
 	return not matches
 end
 
+-- so we can use code from BankFrame without duplicating it
+-- (or inheriting, because that'd do things we don't want)
+local function DeriveMixinMembers(derivedMixin, sourceMixin, memberNames)
+	for _, memberName in pairs(memberNames) do
+		derivedMixin[memberName] = sourceMixin[memberName]
+	end
+end
 ------------------------------------------------------
 -- Below here is customized Blizz BankFrame.lua code
 ------------------------------------------------------
 
 GFW_BankFrameMixin = CreateFromMixins(CallbackRegistryMixin);
+DeriveMixinMembers(GFW_BankFrameMixin, BankFrameMixin, {
+	"UpdateWidthForSelectedTab",
+	"GetActiveBankType",
+})
 
-GFW_BankFrameMixin:GenerateCallbackEvents(
-{
-	"TitleUpdateRequested",
-});
 
 function GFW_BankFrameMixin:OnLoad()
 	CallbackRegistryMixin.OnLoad(self);
-	self:AddDynamicEventMethod(self, GFW_BankFrameMixin.Event.TitleUpdateRequested, self.OnTitleUpdateRequested);
+
+	local titleText = L.AddonVersion:format(T.Title, T.Version)
+	self:SetTitle(titleText)
 
 	TabSystemOwnerMixin.OnLoad(self);
 	self:InitializeTabSystem();
 end
 
--- TODO bliz reuse: make this nop, and we can get rid of callback events and custom OnLoad?
-function GFW_BankFrameMixin:OnTitleUpdateRequested(titleText)
-	self:SetTitle(titleText);
-end
-
--- TODO investigate ways to reuse bliz code without inheriting template/mixin
--- GFW_BankFrameMixin.InitializeTabSystem = BankFrameMixin.InitializeTabSystem etc?
--- except now we've customized this function, but maybe others can do that
 function GFW_BankFrameMixin:InitializeTabSystem()
 	self.TabSystem.minTabWidth = self.TabSystem.minTabWidth + 16
 	self:SetTabSystem(self.TabSystem);
@@ -194,12 +195,6 @@ function GFW_BankFrameMixin:SetTab(tabID)
 	self:UpdateWidthForSelectedTab();
 end
 
-function GFW_BankFrameMixin:UpdateWidthForSelectedTab()
-	local tabPage = self:GetElementsForTab(self:GetTab())[1];
-	self:SetWidth(tabPage:GetWidth());
-	UpdateUIPanelPositions(self);
-end
-
 function GFW_BankFrameMixin:SelectDefaultTab()
 	for _index, tabID in ipairs(self:GetTabSet()) do
 		if self.TabIDToBankType[tabID] == TabType.Bank then
@@ -207,10 +202,6 @@ function GFW_BankFrameMixin:SelectDefaultTab()
 			return
 		end
 	end
-end
-
-function GFW_BankFrameMixin:GetActiveBankType()
-	return self.BankPanel:IsShown() and self.BankPanel:GetActiveBankType() or nil;
 end
 
 function GFW_BankFrameMixin:OnShow()
@@ -223,16 +214,26 @@ function GFW_BankFrameMixin:OnHide()
 end
 
 GFW_BankPanelSystemMixin = {};
+DeriveMixinMembers(GFW_BankPanelSystemMixin, BankPanelSystemMixin, {
+	"GetActiveBankType"
+})
 
 function GFW_BankPanelSystemMixin:GetBankPanel()
 	return GFW_BankPanel;
 end
 
-function GFW_BankPanelSystemMixin:GetActiveBankType()
-	return self:GetBankPanel():GetActiveBankType();
-end
-
 GFW_BankPanelTabMixin = CreateFromMixins(GFW_BankPanelSystemMixin);
+DeriveMixinMembers(GFW_BankPanelTabMixin, BankPanelTabMixin, {
+	"OnShow",
+	"OnHide",
+	"OnEvent",
+	"OnEnter",
+	"OnLeave",
+	"OnNewBankTabSelected",
+	"RefreshVisuals",
+	"Init",
+	"IsSelected",
+})
 
 local BANK_PANEL_TAB_EVENTS = {
 	"INVENTORY_SEARCH_UPDATE",
@@ -244,31 +245,9 @@ function GFW_BankPanelTabMixin:OnLoad()
 	self:AddDynamicEventMethod(self:GetBankPanel(), GFW_BankPanelMixin.Event.NewBankTabSelected, self.OnNewBankTabSelected);
 end
 
-function GFW_BankPanelTabMixin:OnShow()
-	CallbackRegistrantMixin.OnShow(self);
-	FrameUtil.RegisterFrameForEvents(self, BANK_PANEL_TAB_EVENTS);
-end
-
-function GFW_BankPanelTabMixin:OnHide()
-	CallbackRegistrantMixin.OnHide(self);
-	FrameUtil.UnregisterFrameForEvents(self, BANK_PANEL_TAB_EVENTS);
-end
-
-function GFW_BankPanelTabMixin:OnEvent(event, ...)
-	if event == "INVENTORY_SEARCH_UPDATE" then
-		self:RefreshSearchOverlay();
-	end
-end
-
 function GFW_BankPanelTabMixin:OnClick(button)
 	PlaySound(SOUNDKIT.IG_MAINMENU_OPTION);
 	self:GetBankPanel():TriggerEvent(GFW_BankPanelMixin.Event.BankTabClicked, self.tabData.ID);
-end
-
-function GFW_BankPanelTabMixin:OnEnter()
-	if not self:IsPurchaseTab() then
-		self:ShowTooltip();
-	end
 end
 
 function GFW_BankPanelTabMixin:ShowTooltip()
@@ -281,43 +260,9 @@ function GFW_BankPanelTabMixin:ShowTooltip()
 	GameTooltip:Show();
 end
 
-function GFW_BankPanelTabMixin:OnLeave()
-	GameTooltip_Hide();
-end
-
-function GFW_BankPanelTabMixin:OnNewBankTabSelected(tabID)
-	self:RefreshVisuals();
-end
-
-function GFW_BankPanelTabMixin:RefreshVisuals()
-	local enabled = self:IsEnabled();
-	self.Icon:SetDesaturated(not enabled);
-	self.SelectedTexture:SetShown(enabled and self:IsSelected());
-	self:RefreshSearchOverlay();
-end
-
 function GFW_BankPanelTabMixin:RefreshSearchOverlay()
 	local isFiltered = GFW_BankItemSearchBox:GetText() ~= "" and not self.tabData.hasMatch
 	self.SearchOverlay:SetShown(isFiltered);
-end
-
-function GFW_BankPanelTabMixin:Init(tabData)
-	if not tabData then
-		return;
-	end
-
-	self.tabData = tabData;
-	if self:IsPurchaseTab() then
-		self.Icon:SetAtlas("Garr_Building-AddFollowerPlus", TextureKitConstants.UseAtlasSize);
-	else
-		self.Icon:SetTexture(self.tabData.icon or QUESTION_MARK_ICON);
-	end
-
-	self:RefreshVisuals();
-end
-
-function GFW_BankPanelTabMixin:IsSelected()
-	return self.tabData.ID == self:GetBankPanel():GetSelectedTabID();
 end
 
 function GFW_BankPanelTabMixin:IsPurchaseTab()
@@ -325,9 +270,19 @@ function GFW_BankPanelTabMixin:IsPurchaseTab()
 end
 
 GFW_BankPanelItemButtonMixin = {};
+DeriveMixinMembers(GFW_BankPanelItemButtonMixin, BankPanelItemButtonMixin, {
+	"OnLeave",
+	"OnUpdate",
+	"SetBankTabID",
+	"GetBankTabID",
+	"SetBankType",
+	"GetBankType",
+	"SetContainerSlotID",
+	"GetContainerSlotID",
+	"UpdateVisualsForBankType"
+})
 
 function GFW_BankPanelItemButtonMixin:OnLoad()
-	-- self:RegisterForDrag("LeftButton");
 	self:RegisterForClicks("LeftButtonUp", "RightButtonUp");
 end
 
@@ -351,13 +306,6 @@ function GFW_BankPanelItemButtonMixin:OnEnter()
 	end
 end
 
-function GFW_BankPanelItemButtonMixin:OnLeave()
-	GameTooltip_Hide();
-	ResetCursor();
-
-	self:SetScript("OnUpdate", nil);
-end
-
 function GFW_BankPanelItemButtonMixin:OnClick(button)
 	if IsModifiedClick() then
 		self:OnModifiedClick(button);
@@ -373,32 +321,6 @@ function GFW_BankPanelItemButtonMixin:OnModifiedClick()
 	end
 end
 
-function GFW_BankPanelItemButtonMixin:OnUpdate()
-	if GameTooltip:IsOwned(self) then
-		if IsModifiedClick("DRESSUP") then
-			ShowInspectCursor();
-		else
-			ResetCursor();
-		end
-	end
-end
-
-function GFW_BankPanelItemButtonMixin:SetBankTabID(bankTabID)
-	self.bankTabID = bankTabID;
-end
-
-function GFW_BankPanelItemButtonMixin:GetBankTabID()
-	return self.bankTabID;
-end
-
-function GFW_BankPanelItemButtonMixin:SetBankType(bankType)
-	self.bankType = bankType;
-end
-
-function GFW_BankPanelItemButtonMixin:GetBankType()
-	return self.bankType;
-end 
-
 function GFW_BankPanelItemButtonMixin:Init(bankType, bankTabID, containerSlotID)
 	self:SetBankType(bankType);
 	self:SetBankTabID(bankTabID);
@@ -407,14 +329,6 @@ function GFW_BankPanelItemButtonMixin:Init(bankType, bankTabID, containerSlotID)
 	self.isInitialized = true;
 
 	self:Refresh();
-end
-
-function GFW_BankPanelItemButtonMixin:SetContainerSlotID(containerSlotID)
-	self.containerSlotID = containerSlotID;
-end
-
-function GFW_BankPanelItemButtonMixin:GetContainerSlotID()
-	return self.containerSlotID;
 end
 
 function GFW_BankPanelItemButtonMixin:UpdateFilter(pattern)
@@ -491,10 +405,6 @@ function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
 	end
 end
 
-function GFW_BankPanelItemButtonMixin:UpdateVisualsForBankType()
-	self:UpdateBackgroundForBankType();
-end
-
 function GFW_BankPanelItemButtonMixin:UpdateBackgroundForBankType()
 	self.Background:ClearAllPoints();
 	
@@ -516,7 +426,21 @@ function GFW_BankPanelItemButtonMixin:UpdateBackgroundForBankType()
 end
 
 GFW_BankPanelMixin = CreateFromMixins(CallbackRegistryMixin);
-
+DeriveMixinMembers(GFW_BankPanelMixin, BankPanelMixin, {
+	"OnShow",
+	"MarkDirty",
+	"OnUpdate",
+	"OnBankTabClicked",
+	"OnNewBankTabSelected",
+	"GetSelectedTabID",
+	"GetTabData",
+	"GetSelectedTabData",
+	"GetActiveBankType",
+	"RefreshHeaderText",
+	"RefreshAllItemsForSelectedTab",
+	"EnumerateValidItems",
+	"FindItemButtonByContainerSlotID",
+})
 local BankPanelEvents = {
 	"ACCOUNT_MONEY",
 	"BANK_TABS_CHANGED",
@@ -557,13 +481,6 @@ function GFW_BankPanelMixin:OnLoad()
 	self.selectedTabID = nil;
 end
 
-function GFW_BankPanelMixin:OnShow()
-	CallbackRegistrantMixin.OnShow(self);
-	FrameUtil.RegisterFrameForEvents(self, BankPanelEvents);
-
-	self:Reset();
-end
-
 function GFW_BankPanelMixin:OnHide()
 	CallbackRegistrantMixin.OnHide(self);
 	FrameUtil.UnregisterFrameForEvents(self, BankPanelEvents);
@@ -571,11 +488,6 @@ function GFW_BankPanelMixin:OnHide()
 	self.selectedTabID = nil;
 
 	ItemButtonUtil.TriggerEvent(ItemButtonUtil.Event.ItemContextChanged);
-end
-
-function GFW_BankPanelMixin:MarkDirty()
-	self.isDirty = true;
-	self:SetScript("OnUpdate", self.OnUpdate);
 end
 
 function GFW_BankPanelMixin:Clean()
@@ -597,20 +509,6 @@ function GFW_BankPanelMixin:Clean()
 	self:SetScript("OnUpdate", nil);
 end
 
-function GFW_BankPanelMixin:OnUpdate()
-	self:Clean();
-end
-
-function GFW_BankPanelMixin:SetItemDisplayEnabled(enable)
-	if not enable then
-		self.itemButtonPool:ReleaseAll();
-	end
-end
-
-function GFW_BankPanelMixin:SetMoneyFrameEnabled(enable)
-	self.MoneyFrame:SetEnabled(enable);
-end
-
 function GFW_BankPanelMixin:OnEvent(event, ...)
 	if event == "INVENTORY_SEARCH_UPDATE" then
 		self:UpdateSearchResults();
@@ -619,34 +517,6 @@ function GFW_BankPanelMixin:OnEvent(event, ...)
 	else
 		self:MarkDirty();
 	end
-end
-
-function GFW_BankPanelMixin:OnBankTabClicked(clickedTabID)
-	self:SelectTab(clickedTabID);
-end
-
-function GFW_BankPanelMixin:OnNewBankTabSelected(tabID)
-	self:RefreshBankPanel();
-end
-
-function GFW_BankPanelMixin:GetSelectedTabID()
-	return self.selectedTabID;
-end
-
-function GFW_BankPanelMixin:GetTabData(tabID)
-	if not self.purchasedBankTabData then
-		return;
-	end
-
-	for index, tabData in ipairs(self.purchasedBankTabData) do
-		if tabData.ID == tabID then
-			return tabData;
-		end
-	end
-end
-
-function GFW_BankPanelMixin:GetSelectedTabData()
-	return self:GetTabData(self.selectedTabID);
 end
 
 function GFW_BankPanelMixin:RefreshUpdatedText()
@@ -878,10 +748,6 @@ function GFW_BankPanelMixin:SetBankType(bankType)
 	end
 end
 
-function GFW_BankPanelMixin:GetActiveBankType()
-	return self.bankType;
-end
-
 function GFW_BankPanelMixin:SelectTab(tabID)
 	local alreadySelected = self.selectedTabID == tabID;
 	if not alreadySelected then
@@ -899,23 +765,9 @@ function GFW_BankPanelMixin:RefreshBankPanel()
 		return;
 	end
 		
-	self:SetHeaderEnabled(true);
-	self:SetItemDisplayEnabled(true);
-	self:SetMoneyFrameEnabled(true);
+	self:RefreshHeaderText();
+	self.MoneyFrame:Refresh()
 	self:GenerateItemSlotsForSelectedTab();
-end
-
-function GFW_BankPanelMixin:SetHeaderEnabled(enabled)
-	self.Header:SetShown(enabled);
-
-	if enabled then
-		self:RefreshHeaderText();
-	end
-end
-
-function GFW_BankPanelMixin:RefreshHeaderText()
-	local selectedBankTabData = self:GetTabData(self.selectedTabID);
-	self.Header.Text:SetText(selectedBankTabData and selectedBankTabData.name or "");
 end
 
 function GFW_BankPanelMixin:Reset()
@@ -925,13 +777,7 @@ function GFW_BankPanelMixin:Reset()
 	self:RefreshBankTabs();
 	self:RefreshBankPanel();
 	self:RefreshMenu()
-	self:RequestTitleRefresh();
 	ItemButtonUtil.TriggerEvent(ItemButtonUtil.Event.ItemContextChanged);
-end
-
-function GFW_BankPanelMixin:RequestTitleRefresh()
-	local bestTitleForBankType = L.AddonVersion:format(T.Title, T.Version)
-	self:GetBankContainerFrame():TriggerEvent(GFW_BankFrameMixin.Event.TitleUpdateRequested, bestTitleForBankType);
 end
 
 function GFW_BankPanelMixin:SelectFirstAvailableTab()
@@ -1005,7 +851,7 @@ end
 function GFW_BankPanelMixin:RefreshBankTabs()
 	self.bankTabPool:ReleaseAll();
 
-	-- List bank tabs first...
+	-- TODO handle restricted guild bank tabs?
 	local lastBankTab;
 	if self.purchasedBankTabData then
 		for index, bankTabData in ipairs(self.purchasedBankTabData) do
@@ -1073,12 +919,6 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 		button:Show();
 
 		lastCreatedButton = button;
-	end
-end
-
-function GFW_BankPanelMixin:RefreshAllItemsForSelectedTab()
-	for itemButton in self:EnumerateValidItems() do
-		itemButton:Refresh();
 	end
 end
 
@@ -1211,28 +1051,14 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 	end
 
 	-- show indicators on tabs
-	GFW_BankFrame:UpdateTabIndicators()
+	self:GetBankContainerFrame():UpdateTabIndicators()
 	self:RefreshMenu()
 end
 
-function GFW_BankPanelMixin:EnumerateValidItems()
-	return self.itemButtonPool:EnumerateActive();
-end
-
-function GFW_BankPanelMixin:FindItemButtonByContainerSlotID(containerSlotID)
-	for itemButton in self:EnumerateValidItems() do
-		if itemButton:GetContainerSlotID() == containerSlotID then
-			return itemButton;
-		end
-	end
-end
-
-
 GFW_BankPanelMoneyFrameMixin = CreateFromMixins(GFW_BankPanelSystemMixin);
-
-function GFW_BankPanelMoneyFrameMixin:OnShow()
-	self:Refresh();
-end
+DeriveMixinMembers(GFW_BankPanelMoneyFrameMixin, BankPanelMoneyFrameMixin, {
+	"OnShow",
+})
 
 function GFW_BankPanelMoneyFrameMixin:OnEnter()
 	
@@ -1280,31 +1106,19 @@ function GFW_BankPanelMoneyFrameMixin:OnLeave()
 	GameTooltip_Hide();
 end
 
-function GFW_BankPanelMoneyFrameMixin:SetEnabled(enable)
-	self:SetShown(enable);
-	self:Refresh();
-end
-
 function GFW_BankPanelMoneyFrameMixin:Refresh()
 	if not self:IsShown() then
 		return;
 	end
 
-	self:RefreshContents();
-end
-
-function GFW_BankPanelMoneyFrameMixin:RefreshContents()
 	self.MoneyDisplay:Refresh();
 end
 
 GFW_BankPanelMoneyFrameMoneyDisplayMixin = CreateFromMixins(GFW_BankPanelSystemMixin);
 
-function GFW_BankPanelMoneyFrameMoneyDisplayMixin:OnLoad()
-	SmallMoneyFrame_OnLoad(self);
-
-	-- We don't want the money popup functionality in the bank panel
-	self:DisableMoneyPopupFunctionality();
-end
+DeriveMixinMembers(GFW_BankPanelMoneyFrameMoneyDisplayMixin, BankPanelMoneyFrameMoneyDisplayMixin, {
+	"OnLoad",
+})
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:DisableMoneyPopupFunctionality()
 	-- no clicking buttons for money pickup
