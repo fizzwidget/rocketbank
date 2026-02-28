@@ -225,6 +225,8 @@ function T.CacheReagentQualityItems(itemID)
 	local isReagent = info[17]
 	if name and not isReagent then
 		-- print(itemID, name, link, "not a reagent with quality levels")
+		-- TODO find crafted consumables with quality too
+		-- probably needs a different way to restrict which items we check
 		T.ReagentQualityQueue[itemID] = nil
 		return
 	end
@@ -349,7 +351,7 @@ DB = {
 				last = 6, -- containerID of last bank tab
 			},
 			currency = {
-				-- TBD
+				-- TODO save currency
 			},
 			equipped = {
 				-- inventory slot
@@ -894,6 +896,9 @@ function T:TooltipAddItemInfo(tooltip, itemID)
 		local warbandLine = L.TooltipLinePlayer:format(ACCOUNT_BANK_PANEL_TITLE, inWarband)
 		GameTooltip_AddColoredLine(tooltip, warbandLine, BRIGHTBLUE_FONT_COLOR)
 	end
+	
+	-- TODO option to include guild bank, count all or only withdrawable
+
 end
 
 T.ReagentQualityIcon = setmetatable({}, {

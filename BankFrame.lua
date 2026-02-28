@@ -135,8 +135,8 @@ function GFW_BankFrameMixin:GenerateTabs()
 	
 	local id
 	self.TabIDToBankType = {}
-	-- TODO currency as own tab, or bank-bag tab in inventory?
 	
+	-- currency as own tab, or bank-bag tab in inventory?
 	for _, tabType in pairs({TabType.Bank, TabType.Inventory, TabType.Guild, TabType.Warband}) do
 		local id = self:AddNamedTab(L.TabType[tabType], self.BankPanel)
 		self.TabIDToBankType[id] = tabType
@@ -332,9 +332,11 @@ function GFW_BankPanelItemButtonMixin:Init(bankType, bankTabID, containerSlotID)
 end
 
 function GFW_BankPanelItemButtonMixin:UpdateFilter(pattern)
-	if not self.itemInfo then return end
+	if not self.itemInfo then 
+		self:SetMatchesSearch(true)
+		return
+	end
 	
-	-- BUG filter overlay not hiding sometimes
 	local isFiltered = ItemFiltered(self.itemInfo.hyperlink, pattern)
 	self.itemInfo.isFiltered = isFiltered
 	self:SetMatchesSearch(not isFiltered);
@@ -1043,10 +1045,8 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 	
 	-- search active bank/bag tab by item slots
 	for itemButton in self:EnumerateValidItems() do
-		if itemButton.itemInfo then
-			if itemButton:UpdateFilter(pattern) and pattern ~= "" then
-				AddMatch(currentTabType, currentWho, currentRealm)
-			end
+		if itemButton:UpdateFilter(pattern) and pattern ~= "" then
+			AddMatch(currentTabType, currentWho, currentRealm)
 		end
 	end
 
