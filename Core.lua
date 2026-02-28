@@ -24,11 +24,12 @@ end })
 local Events = T.EventHandlers
 
 ------------------------------------------------------
--- Basic data
+-- Basic session info
 ------------------------------------------------------
 
 T.Realm = strtrim(GetRealmName())
 T.Player = UnitName("player")
+-- T.Guild set lazily, not available at load
 
 ------------------------------------------------------
 -- Bank preview frame launch conveniences
@@ -47,7 +48,7 @@ SLASH_GFW_BANK1 = "/bank"
 SlashCmdList["GFW_BANK"] = GFW_ToggleBank
 
 function GFW_Bank_OnAddonCompartmentClick(name, button)
-	-- LeftButton vs RightButton actions?
+	-- LeftButton vs RightButton actions? tooltip?
 	GFW_ToggleBank()
 end
 
@@ -403,6 +404,10 @@ function Events:GUILDBANK_UPDATE_MONEY()
 	self.UpdateGuildMoney()
 end
 
+------------------------------------------------------
+-- Saved data management 
+------------------------------------------------------
+
 function T.ProcessBagUpdateQueue()
 	for bagID in pairs(T.BagUpdateQueue) do
 		-- print("handling queued UpdateDBForBag", bagID)
@@ -448,6 +453,82 @@ function T.InitializeGuild()
 		GB[T.Realm][T.Guild].bags = {}
 	end
 end
+
+function T.AskToDeleteGuild(guildName, realmName)
+	local guildRealm = L.PlayerRealm:format(guildName, realmName)
+	local coloredText = NORMAL_FONT_COLOR:WrapTextInColorCode(guildRealm)
+	local data = { guildName = guildName, realmName = realmName }
+	StaticPopup_Show(addonName.."_DeleteGuild", coloredText, T.Title, data)
+end
+
+function T.ConfirmedDeleteGuild(self, data)
+	GB[data.realmName][data.guildName] = nil
+	local realmEmpty = true
+	for realm in pairs(GB[data.realmName]) do
+		realmEmpty = false
+		break
+	end
+	if realmEmpty then
+		GB[data.realmName] = nil
+	end
+	local guildRealm = L.PlayerRealm:format(data.guildName, data.realmName)
+	print(L.DeleteDone:format(T.Title, guildRealm))
+	if GFW_BankPanel:IsVisible() then
+		GFW_BankPanel:RefreshMenu()
+	end
+end
+
+StaticPopupDialogs[addonName.."_DeleteGuild"] = {
+	text = L.DeleteGuild,
+	OnAccept = T.ConfirmedDeleteGuild,
+	button1 = DELETE,
+	button2 = CANCEL,
+	wide = true,
+	wideText = true,
+	timeout = 30,
+	hideOnEscape = true,
+	whileDead = true,
+}
+
+function T.AskToDeleteCharacter(characterName, realmName)
+	local playerRealm = L.PlayerRealm:format(characterName, realmName)
+	local coloredText = NORMAL_FONT_COLOR:WrapTextInColorCode(playerRealm)
+	local data = { characterName = characterName, realmName = realmName }
+	StaticPopup_Show(addonName.."_DeleteCharacter", coloredText, T.Title, data)
+end
+
+function T.ConfirmedDeleteCharacter(self, data)
+	DB[data.realmName][data.characterName] = nil
+	local realmEmpty = true
+	for realm in pairs(DB[data.realmName]) do
+		realmEmpty = false
+		break
+	end
+	if realmEmpty then
+		DB[data.realmName] = nil
+	end
+	local playerRealm = L.PlayerRealm:format(data.characterName, data.realmName)
+	print(L.DeleteDone:format(T.Title, playerRealm))
+	if GFW_BankPanel:IsVisible() then
+		GFW_BankPanel:RefreshMenu()
+	end
+end
+
+StaticPopupDialogs[addonName.."_DeleteCharacter"] = {
+	text = L.DeleteCharacter,
+	OnAccept = T.ConfirmedDeleteCharacter,
+	button1 = DELETE,
+	button2 = CANCEL,
+	wide = true,
+	wideText = true,
+	timeout = 30,
+	hideOnEscape = true,
+	whileDead = true,
+}
+
+------------------------------------------------------
+-- Updating saved data 
+------------------------------------------------------
 
 function T.UpdateDBForAllBags(includeBank)
 	for bagID = 0, NUM_TOTAL_EQUIPPED_BAG_SLOTS do

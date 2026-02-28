@@ -648,8 +648,6 @@ function GFW_BankPanelMixin:RefreshMenu()
 		self:SetBankType(strjoin("|", entryData, tabType))
 	end
 
-	-- TODO highlight search results
-	-- TODO crib from Edit Mode UI: extra widget in menu to delete DB entries
 	-- class colors, faction icons in menu? maybe just faction icons for guilds?
 	
 	self.whoMenu:SetSelectionTranslator(function(selection)
@@ -671,16 +669,36 @@ function GFW_BankPanelMixin:RefreshMenu()
 					frame.fontString:SetTextColor(GRAY_FONT_COLOR:GetRGBA())
 				end
 				
-				-- highlight logged-in player or their guild
 				local who, realm = SplitBankType(entryData)
 				if realm == T.Realm and (who == T.Player or who == T.Guild) then
+					-- highlight logged-in player or their guild
 					frame.fontString:SetTextColor(LIGHTBLUE_FONT_COLOR:GetRGBA())
+				elseif not isSelected(entryData) then
+					-- data not for the current player we can offer to delete
+					local deleteButton = MenuTemplates.AttachAutoHideCancelButton(frame)
+					deleteButton:SetPoint("RIGHT")
+					deleteButton:SetScript("OnClick", function()
+						if tabType == TabType.Guild then
+							T.AskToDeleteGuild(who, realm)
+						else
+							T.AskToDeleteCharacter(who, realm)
+						end
+						menu:Close()
+					end)
+					MenuUtil.HookTooltipScripts(deleteButton, function(tooltip)
+						GameTooltip_SetTitle(tooltip, L.DeleteTooltip);
+					end);
+
 				end
 				
-				-- highlight search results
-				-- if ??? has search results ??? then
-					-- add icon UI-HUD-MicroMenu-Communities-Icon-Notification
-				-- end					
+				-- TODO highlight search results
+				-- local isSearchResult = true -- TEMP
+				if isSearchResult then
+					frame.searchResult = frame:AttachTexture()
+					frame.searchResult:SetSize(16, 16)
+					frame.searchResult:SetPoint("LEFT", frame.fontString, "RIGHT")
+					frame.searchResult:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification")
+				end
 			end)
 		end
 	end)
@@ -766,7 +784,7 @@ function GFW_BankPanelMixin:Reset()
 end
 
 function GFW_BankPanelMixin:RequestTitleRefresh()
-	local bestTitleForBankType = "Fizzwidget " .. T.Title
+	local bestTitleForBankType = L.AddonVersion:format(T.Title, T.Version)
 	self:GetBankContainerFrame():TriggerEvent(GFW_BankFrameMixin.Event.TitleUpdateRequested, bestTitleForBankType);
 end
 

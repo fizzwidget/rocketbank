@@ -16,6 +16,8 @@ local S = Locale.Setting
 local T = Locale.SettingTooltip
 ------------------------------------------------------
 
+L.AddonVersion = "Fizzwidget %s v.%s" -- addonName, versionNum
+
 L.PlayerRealm = "%s (%s)" -- playerName, realmName
 L.TooltipLinePlayer = "%s has %s" -- playerName or "warband bank", itemCount or reagentSummary
 L.TooltipLinePlayerBank = "%s has %s (%s in bank)" -- playerName, itemCount or reagentSummary, itemCount or reagentSummary
@@ -26,6 +28,16 @@ L.BindingToggleBank = "Toggle bank preview panel"
 
 L.Updated = "Updated: %s" -- long date+time string
 L.NotInGuild = "(%s — no guild)" -- playerName
+
+L.DeleteTooltip = "Delete cached data"
+
+-- addonName, playerName + realmName
+L.DeleteCharacter = "Delete this addon‘s data cache for the character |n%1$s?|n|n %2$s will not show information from their inventory, bank, etc until the next time you log into that character." 
+-- addonName, guildName + realmName
+L.DeleteGuild = "Delete this addon's data cache for the guild |n%1$s?|n|n %2$s will not show guild bank information until the next time you log into a character in that guild." 
+
+L.DeleteDone = "%s: Deleted data cache for %s" -- addonName, playerName/guildName + realmName
+
 
 ------------------------------------------------------
 
