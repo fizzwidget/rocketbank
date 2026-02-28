@@ -1,0 +1,13 @@
+## Interface: 110200
+## Version: 11.2
+## Author: Gazmik Fizzwidget
+## Title: Fizzwidget Bank (Clever Name Pending™)
+## Notes: Keeps track of all your characters' stuff.
+## Category: Inventory
+## IconTexture: Interface/Icons/ability_racial_timeismoney
+## SavedVariables: GFW_Bank_Settings, GFW_Bank_DB
+## LoadSavedVariablesFirst: 1
+
+# core
+Localization.lua
+Core.lua
