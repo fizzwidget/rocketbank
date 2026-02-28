@@ -386,22 +386,16 @@ end
 function GFW_BankPanelItemButtonMixin:UpdateBackgroundForBankType()
 	self.Background:ClearAllPoints();
 	
-	-- TODO revisit this when we support warbank
-	--[[
-		Notes:
-		- ItemButtonMixin's notion of BankType limited to selecting background texture
-		- GFW_Bank's notion of BankType is actually Realm-Character pair for DB lookup
-	]]
-	
-	-- if self.bankType == Enum.BankType.Account then
-	-- 	self.Background:SetPoint("TOPLEFT", -6, 5);
-	-- 	self.Background:SetPoint("BOTTOMRIGHT", 6, -7);
-	-- 	self.Background:SetAtlas("warband-bank-slot", TextureKitConstants.IgnoreAtlasSize);
-	-- else
+	local _, _, type = SplitBankType(self.bankType)
+	if type == "WARBAND" then
+		self.Background:SetPoint("TOPLEFT", -6, 5);
+		self.Background:SetPoint("BOTTOMRIGHT", 6, -7);
+		self.Background:SetAtlas("warband-bank-slot", TextureKitConstants.IgnoreAtlasSize);
+	else
 		self.Background:SetPoint("TOPLEFT");
 		self.Background:SetPoint("BOTTOMRIGHT");
 		self.Background:SetAtlas("bags-item-slot64", TextureKitConstants.IgnoreAtlasSize);
-	-- end
+	end
 end
 
 GFW_BankPanelMixin = CreateFromMixins(CallbackRegistryMixin);
