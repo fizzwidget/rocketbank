@@ -34,7 +34,7 @@ T.Player = UnitName("player")
 -- Bank preview frame launch conveniences
 ------------------------------------------------------
 
-function T.ToggleBank()
+function GFW_ToggleBank()
 	if GFW_BankFrame:IsVisible() then
 		HideUIPanel(GFW_BankFrame)
 	else
@@ -44,12 +44,16 @@ function T.ToggleBank()
 end
 
 SLASH_GFW_BANK1 = "/bank"
-SlashCmdList["GFW_BANK"] = T.ToggleBank
+SlashCmdList["GFW_BANK"] = GFW_ToggleBank
 
 function GFW_Bank_OnAddonCompartmentClick(name, button)
 	-- LeftButton vs RightButton actions?
-	T.ToggleBank()
+	GFW_ToggleBank()
 end
+
+-- Bindings.xml localized text
+BINDING_HEADER_GFW_BANK = "Fizzwidget " .. T.Title
+BINDING_NAME_GFW_TOGGLEBANK = L.BindingToggleBank
 
 ------------------------------------------------------
 -- Utilities

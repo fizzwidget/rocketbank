@@ -580,7 +580,7 @@ function GFW_BankPanelMixin:Reset()
 end
 
 function GFW_BankPanelMixin:RequestTitleRefresh()
-	local bestTitleForBankType = T.Title
+	local bestTitleForBankType = "Fizzwidget " .. T.Title
 	self:GetBankContainerFrame():TriggerEvent(GFW_BankFrameMixin.Event.TitleUpdateRequested, bestTitleForBankType);
 end
 

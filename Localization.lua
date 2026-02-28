@@ -20,6 +20,9 @@ L.TooltipLinePlayer = "%s has %s"
 L.TooltipLinePlayerBank = "%s has %s (%s in bank)"
 L.TooltipLineBankOnly = "%s has %s (in bank)"
 L.ReagentTotalAndQualities = "%s: %s" -- "6: 1* 2** 3***"
+
+L.BindingToggleBank = "Toggle bank preview panel"
+
 ------------------------------------------------------
 
 if (GetLocale() == "deDE") then

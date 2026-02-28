@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="GFW_TOGGLEBANK" header="GFW_BANK" category="ADDONS" default="ALT-B">
+		GFW_ToggleBank()
+	</Binding>
+</Bindings>
