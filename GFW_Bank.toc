@@ -1,7 +1,7 @@
 ## Interface: 110200
 ## Version: 11.2
 ## Author: Gazmik Fizzwidget
-## Title: Fizzwidget Bank (Clever Name Pending™)
+## Title: Rocketbank Mobilier
 ## Notes: Keeps track of all your characters' stuff.
 ## Category: Inventory
 ## IconTexture: Interface/Icons/ability_racial_timeismoney
