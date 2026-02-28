@@ -537,16 +537,14 @@ end
 
 function GFW_BankPanelMixin:CreateCharacterMenu()
 	
-	local _, _, type = SplitBankType(self.bankType)
-	if type == "WARBAND" then
+	local _, _, tabType = SplitBankType(self.bankType)
+	if tabType == "WARBAND" then
 		if self.characterMenu then
 			self.characterMenu:Hide()
 		end
-		return
 	elseif self.characterMenu then
 		self.characterMenu:Show()
 		-- this list should be constant within session, so only create it once
-		return
 	end
 		
 	-- menu entry for current player character always comes first
@@ -574,8 +572,10 @@ function GFW_BankPanelMixin:CreateCharacterMenu()
 			listCharactersInRealm(realmName, dbRealm)
 		end
 	end
-		
-	self.characterMenu = CreateFrame("DropdownButton", nil, self, "WowStyle1DropdownTemplate")
+	
+	if not self.characterMenu then
+		self.characterMenu = CreateFrame("DropdownButton", nil, self, "WowStyle1DropdownTemplate")
+	end
 	self.characterMenu:SetDefaultText(T.Player)
 	self.characterMenu:SetPoint("BOTTOMLEFT", 2, 3)
 	self.characterMenu:SetWidth(180)
@@ -583,14 +583,12 @@ function GFW_BankPanelMixin:CreateCharacterMenu()
 	local function isSelected(characterInfo)
 		-- match playerName|realmName only at start of playerName|realmName|tabType
 		return strfind(self.bankType, characterInfo, 1, true) == 1
-		-- 		local selectedPlayer, selectedRealm = SplitBankType(characterInfo)
-		-- local player, realm = SplitBankType(self.bankType)
-		-- return selectedRealm == realm and selectedPlayer == player
 	end
 	local function setSelected(characterInfo)
-		self:SetBankType(strjoin("|", characterInfo, "BANK"))
+		self:SetBankType(strjoin("|", characterInfo, tabType))
 	end
 	-- TODO don't do the convenience version; use AddInitializer to highlight search results
+	-- TODO crib from Edit Mode UI: extra widget in menu to delete characters
 	MenuUtil.CreateRadioMenu(self.characterMenu, isSelected, setSelected, unpack(self.characterList))
 
 end
