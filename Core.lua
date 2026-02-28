@@ -483,6 +483,8 @@ function T.UpdateDBForBag(bagID)
 			end
 			
 			-- print("-", data.hyperlink, "x", data.stackCount)
+		else
+			dbBag[slot] = nil
 		end
 	end
 	
