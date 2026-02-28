@@ -16,10 +16,11 @@ local S = Locale.Setting
 local T = Locale.SettingTooltip
 ------------------------------------------------------
 
-L.TooltipLinePlayer = "%s has %s"
-L.TooltipLinePlayerBank = "%s has %s (%s in bank)"
-L.TooltipLineBankOnly = "%s has %s (in bank)"
-L.ReagentTotalAndQualities = "%s: %s" -- "6: 1* 2** 3***"
+L.PlayerRealm = "%s (%s)" -- playerName, realmName
+L.TooltipLinePlayer = "%s has %s" -- playerName or "warband bank", itemCount or reagentSummary
+L.TooltipLinePlayerBank = "%s has %s (%s in bank)" -- playerName, itemCount or reagentSummary, itemCount or reagentSummary
+L.TooltipLineBankOnly = "%s has %s (in bank)" -- playerName, itemCount or reagentSummary
+L.ReagentSummary = "%s: %s" -- "6: 1* 2** 3***"
 
 L.BindingToggleBank = "Toggle bank preview panel"
 

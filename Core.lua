@@ -507,7 +507,7 @@ function T:TooltipAddItemInfo(tooltip, itemID)
 		for characterName, dbCharacter in pairs(dbRealm) do
 			if characterName ~= T.Player then
 				if realmName ~= T.Realm then
-					characterName = FULL_PLAYER_NAME:format(characterName, realmName)
+					characterName = L.PlayerRealm:format(characterName, realmName)
 				end
 				local inBags, inBank = T.CharacterItemCount(itemID, dbCharacter)
 				local characterLine = TooltipLine(characterName, inBags, inBank)
@@ -548,7 +548,7 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
 		elseif #strings == 1 then
 			return total, strings[1]
 		else
-			return total, L.ReagentTotalAndQualities:format(total, table.concat(strings))
+			return total, L.ReagentSummary:format(total, table.concat(strings))
 		end
 	end
 	local function TooltipLine(name, inBags, inBank)
@@ -587,7 +587,7 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
 		for characterName, dbCharacter in pairs(dbRealm) do
 			if characterName ~= T.Player then
 				if realmName ~= T.Realm then
-					characterName = FULL_PLAYER_NAME:format(characterName, realmName)
+					characterName = L.PlayerRealm:format(characterName, realmName)
 				end
 				local inBags, inBank = {}, {}, {}
 				inBags[1], inBank[1] = T.CharacterItemCount(quality1, dbCharacter)

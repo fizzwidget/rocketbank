@@ -5,6 +5,15 @@ local L = _G[addonName.."_Locale"].Text
 -- participate in synchronized inventory search
 tinsert(ITEM_SEARCHBAR_LIST, "GFW_BankItemSearchBox")
 
+local function MakeBankType(player, realm, type)
+	local list = {player, realm, type}
+	return table.concat(list, "|")
+end
+
+local function SplitBankType(bankType)
+	return strsplit("|", bankType)
+end
+
 GFW_BankFrameMixin = CreateFromMixins(CallbackRegistryMixin);
 
 GFW_BankFrameMixin:GenerateCallbackEvents(
@@ -37,19 +46,20 @@ function GFW_BankFrameMixin:GenerateTabs()
 	
 	self.TabIDToBankType = {}
 	
+	-- tab for current player character always comes first
 	local id = self:AddNamedTab(T.Player, self.BankPanel)
-	self.TabIDToBankType[id] = FULL_PLAYER_NAME:format(T.Player, T.Realm)
+	self.TabIDToBankType[id] = MakeBankType(T.Player, T.Realm)
 
+	-- skip current player character when making rest of the list
 	for realmName, dbRealm in pairs(DB) do
 		for characterName, dbCharacter in pairs(dbRealm) do
 			if not (characterName == T.Player and realmName == T.Realm) then
 				local displayName = characterName
-				local fullName = FULL_PLAYER_NAME:format(characterName, realmName)
 				if realmName ~= T.Realm then
-					displayName = fullName
+					displayName = L.PlayerRealm:format(characterName, realmName)
 				end
 				local id = self:AddNamedTab(displayName, self.BankPanel)
-				self.TabIDToBankType[id] = fullName
+				self.TabIDToBankType[id] = MakeBankType(characterName, realmName)
 			end
 		end
 	end
@@ -357,15 +367,13 @@ function GFW_BankPanelItemButtonMixin:Refresh()
 end
 
 function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
-	local player, realm = strsplit("-", self.bankType)
+	local player, realm = SplitBankType(self.bankType)
 	local dbCharacterBags = DB[realm][player].bags
 	local dbInfo = dbCharacterBags[self.bankTabID][self.containerSlotID]
 	
 	if dbInfo then
 		local itemID = GetItemInfoFromHyperlink(dbInfo.l)
 		local info = {T.GetItemInfo(itemID)}
-		-- TODO what if info not cached? maybe just include quality in saved DB?
-		-- TODO or maybe keep lazy, but update bank frame on client recache
 		-- if not cached, we'll get UI refresh on GET_ITEM_INFO_RECEIVED
 		
 		self.itemInfo = {
@@ -373,7 +381,6 @@ function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
 			stackCount = dbInfo.c,
 			itemID = itemID,
 			iconFileID = C_Item.GetItemIconByID(dbInfo.l),
-			quality = info[3]
 			quality = info and info[3]
 		}
 	else
@@ -557,7 +564,7 @@ function GFW_BankPanelMixin:SelectTab(tabID)
 end
 
 function GFW_BankPanelMixin:RefreshBankPanel()
-	local player, realm = strsplit("-", self.bankType)
+	local player, realm = SplitBankType(self.bankType)
 	local dbCharacter = DB[realm][player]
 	local serverTimeMS = dbCharacter.updated * 1000 * 1000
 	
@@ -623,7 +630,7 @@ end
 function GFW_BankPanelMixin:FetchPurchasedBankTabData()	
 	self.purchasedBankTabData = {}
 	
-	local player, realm = strsplit("-", self.bankType)
+	local player, realm = SplitBankType(self.bankType)
 	
 	local dbCharacterBags = DB[realm][player].bags
 	for bagID = ITEM_INVENTORY_BANK_BAG_OFFSET + 1, dbCharacterBags.last do
@@ -725,7 +732,7 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 	local pattern = strlower(GFW_BankItemSearchBox:GetText())
 			
 	-- search inactive tabs only enough to see if there's a match
-	local player, realm = strsplit("-", self.bankType)
+	local player, realm = SplitBankType(self.bankType)
 	local dbCharacterBags = DB[realm][player].bags
 	for _, tabData in ipairs(self.purchasedBankTabData) do
 		tabData.hasMatch = nil
@@ -783,7 +790,7 @@ function GFW_BankPanelMoneyFrameMixin:OnEnter()
 		for characterName, dbCharacter in pairs(dbRealm) do
 			local displayName = characterName
 			if realmName ~= T.Realm then
-				displayName = FULL_PLAYER_NAME:format(characterName, realmName)
+				displayName = L.PlayerRealm:format(characterName, realmName)
 			end
 			tinsert(lines, {displayName, dbCharacter.money})
 			total = total + dbCharacter.money
@@ -839,7 +846,8 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:DisableMoneyPopupFunctionality
 end
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:Refresh()
-	local player, realm = strsplit("-", self:GetActiveBankType())
+	local player, realm = SplitBankType(self:GetActiveBankType())
+
 	local dbCharacter = DB[realm][player]
 	
 	MoneyFrame_Update(self:GetName(), dbCharacter.money)
