@@ -451,7 +451,14 @@ function T.UpdateDBForBag(bagID)
 end
 
 function T.UpdateDBForInventory()
-	
+	-- TODO gather inventory slots
+	-- https://warcraft.wiki.gg/wiki/InventorySlotID
+	-- 1-15+19: gear slots on sides of paperdollframe
+	-- 16-18: weapon slots (offhand or ranged not both?)
+	-- 20-22: profesion 0 gear
+	-- 23-25: profesion 1 gear
+	-- 26-27: cooking gear
+	-- 28: fishing rod (29-30 unused fishing accessories)
 end
 
 function T.UpdateDBMoney()
