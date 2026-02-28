@@ -425,14 +425,19 @@ function T.OnTooltipSetItem(tooltip, data)
 	if type == "item" then 
 		local id = strsplit(":", info)
 		local itemID = tonumber(id)
-		T:TooltipAddItemInfo(tooltip, itemID)
+		if RQ[itemID] then
+			-- it's a crafting reagent with quality levels, show detailed breakdown
+			T:TooltipAddReagentInfo(tooltip, itemID)
+		else
+			T:TooltipAddItemInfo(tooltip, itemID)
+		end
 	end
 end
 
 TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, T.OnTooltipSetItem)
 
 function T:TooltipAddItemInfo(tooltip, itemID)
-	function TooltipLine(name, inBags, inBank)
+	local function TooltipLine(name, inBags, inBank)
 		if inBank > 0 and inBags == 0 then
 			return L.TooltipLineBankOnly:format(name, inBank)
 		elseif inBank > 0 then
@@ -468,6 +473,91 @@ function T:TooltipAddItemInfo(tooltip, itemID)
 	-- warband bank last
 	if inWarband > 0 then
 		local warbandLine = L.TooltipLinePlayer:format(ACCOUNT_BANK_PANEL_TITLE, inWarband)
+		GameTooltip_AddColoredLine(tooltip, warbandLine, BRIGHTBLUE_FONT_COLOR)
+	end
+end
+
+T.ReagentQualityIcon = setmetatable({}, {
+	__index = function(t, index)
+		local icon = C_Texture.GetCraftingReagentQualityChatIcon(index)
+		rawset(t, index, icon)
+		return icon
+	end
+})
+function T:TooltipAddReagentInfo(tooltip, itemID)
+	local function Summary(counts, counts2)
+		local strings = {}
+		local total = 0
+		for quality, count in pairs(counts) do
+			local count2 = counts2 and counts2[quality] or 0
+			if count > 0 or count2 > 0 then
+				tinsert(strings, count + count2 .. T.ReagentQualityIcon[quality])
+				total = total + count + count2
+			end
+		end
+		if total == 0 then
+			return 0
+		elseif #strings == 1 then
+			return total, strings[1]
+		else
+			return total, L.ReagentTotalAndQualities:format(total, table.concat(strings, " "))
+		end
+	end
+	local function TooltipLine(name, inBags, inBank)
+		-- inBags and inBank are tables here
+		local totalBags, bagSummary = Summary(inBags)
+		local totalBank, bankSummary = Summary(inBank)
+				
+		if totalBank > 0 and totalBags == 0 then
+			return L.TooltipLineBankOnly:format(name, bankSummary)
+		elseif totalBags > 0 and totalBank == 0 then
+			return L.TooltipLinePlayer:format(name, bagSummary)
+		elseif totalBank > 0 then
+			local totalCombined, combinedSummary = Summary(inBags, inBank)
+			return L.TooltipLinePlayerBank:format(name, combinedSummary, bankSummary)
+		end
+	end
+	
+	-- itemIDs for all qualities of the same reagent
+	local quality1, quality2, quality3 = unpack(RQ[itemID])
+	
+	local inWarband = {}
+	do -- check current player's total in bags, in bank, in warbank with API
+		local inBags, inBank = {}, {}
+		inBags[1], inBank[1], inWarband[1] = T.PlayerItemCount(quality1)
+		inBags[2], inBank[2], inWarband[2] = T.PlayerItemCount(quality2)
+		inBags[3], inBank[3], inWarband[3] = T.PlayerItemCount(quality3)
+				
+		local playerLine = TooltipLine(T.Player, inBags, inBank)
+		if playerLine then
+			GameTooltip_AddColoredLine(tooltip, playerLine, BRIGHTBLUE_FONT_COLOR)
+		end
+	end
+	
+	-- check other characters' totals in saved DB
+	for realmName, dbRealm in pairs(DB) do
+		for characterName, dbCharacter in pairs(dbRealm) do
+			if characterName ~= T.Player then
+				if realmName ~= T.Realm then
+					characterName = FULL_PLAYER_NAME:format(characterName, realmName)
+				end
+				local inBags, inBank = {}, {}, {}
+				inBags[1], inBank[1] = T.CharacterItemCount(quality1, dbCharacter)
+				inBags[2], inBank[2] = T.CharacterItemCount(quality2, dbCharacter)
+				inBags[3], inBank[3] = T.CharacterItemCount(quality3, dbCharacter)	
+				
+				local characterLine = TooltipLine(characterName, inBags, inBank)
+				if characterLine then
+					GameTooltip_AddColoredLine(tooltip, characterLine, BRIGHTBLUE_FONT_COLOR)
+				end
+			end
+		end
+	end
+	
+	-- warband bank last
+	local totalWarband, warbandSummary = Summary(inWarband)
+	if totalWarband > 0 then
+		local warbandLine = L.TooltipLinePlayer:format(ACCOUNT_BANK_PANEL_TITLE, warbandSummary)
 		GameTooltip_AddColoredLine(tooltip, warbandLine, BRIGHTBLUE_FONT_COLOR)
 	end
 end

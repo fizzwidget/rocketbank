@@ -16,10 +16,10 @@ local S = Locale.Setting
 local T = Locale.SettingTooltip
 ------------------------------------------------------
 
-L.TooltipLinePlayer = "%s has %d"
-L.TooltipLinePlayerBank = "%s has %d (%d in bank)"
-L.TooltipLineBankOnly = "%s has %d (in bank)"
-
+L.TooltipLinePlayer = "%s has %s"
+L.TooltipLinePlayerBank = "%s has %s (%s in bank)"
+L.TooltipLineBankOnly = "%s has %s (in bank)"
+L.ReagentTotalAndQualities = "%s: %s" -- "6: 1* 2** 3***"
 ------------------------------------------------------
 
 if (GetLocale() == "deDE") then
