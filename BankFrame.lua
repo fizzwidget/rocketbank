@@ -321,7 +321,7 @@ end
 function GFW_BankPanelItemButtonMixin:UpdateFilter(pattern)
 	if not self.itemInfo then return end
 	
-	-- TODO BUG filter overlay not hiding sometimes
+	-- BUG filter overlay not hiding sometimes
 	local isFiltered = ItemFiltered(self.itemInfo.hyperlink, pattern)
 	self.itemInfo.isFiltered = isFiltered
 	self:SetMatchesSearch(not isFiltered);

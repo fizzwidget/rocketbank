@@ -429,8 +429,6 @@ function T.UpdateDBForBag(bagID)
 		local data = C_Container.GetContainerItemInfo(bagID, slot)
 		if data then
 			-- minimal item info for minimal memory usage
-			-- TODO save more item info if we find a need?
-			-- TODO more minimal by reducing hyperlink to link code only?
 			dbBag[slot] = {
 				l = data.hyperlink,
 				c = data.stackCount > 1 and data.stackCount or nil
