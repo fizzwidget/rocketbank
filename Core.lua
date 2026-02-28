@@ -139,6 +139,46 @@ function T.GetItemInfo(itemID)
 	end
 end
 
+T.FormatMatchInfo = {}
+function T:FormatMatch(text, formatStringName)
+	
+	local pattern, reorders = T.FormatMatchInfo[formatStringName]
+	if not pattern then
+		pattern = _G[formatStringName]
+		
+		-- record the order of reordering specifiers (e.g. %2$s)	
+		reorders = {}
+		for index in string.gmatch(pattern, "%%(%d+)%$[diouXxfgbcsq]") do
+			tinsert(reorders, tonumber(index))
+		end
+		-- then strip the reordering specifiers
+		pattern = pattern:gsub("%%%d+%$([diouXxfgbcsq])", "%%%1") 
+
+		-- so we can transform the format string to a ~regex~ pattern
+		pattern = pattern:gsub("%%(%d-[diu])", "%%d") -- strip field widths from int
+		pattern = pattern:gsub("%%(%d-%.?%d-[gef])", "%%f") -- and from float
+		pattern = pattern:gsub("([%$%(%)%.%[%]%*%+%-%?%^])", "%%%1") -- convert special characters
+		pattern = pattern:gsub("%%c", "(.)") -- %c to (.)
+		pattern = pattern:gsub("%%s", "(.+)") -- %s to (.+)
+		pattern = pattern:gsub("%%d", "(%%d+)") -- %d to (%d+)
+		pattern = pattern:gsub("%%f", "(%%d+%%.*%%d*)") -- %g or %f to (%d+%.*%d*)
+		
+		-- cache it
+		T.FormatMatchInfo[formatStringName] = pattern, reorders
+	end
+
+	-- search input text according to the pattern
+	local matches = {strmatch(text, pattern)}
+	local output = {}
+	for index in pairs(matches) do
+		-- reorder the output according to saved reorders (no reordering if no reorders)
+		local reorderedIndex = reorders and reorders[index] or index
+		output[index] = matches[reorderedIndex]
+	end
+	return unpack(output)
+
+end
+
 ------------------------------------------------------
 -- Save items
 ------------------------------------------------------
@@ -314,6 +354,59 @@ end
 function Events:CURRENCY_DISPLAY_UPDATE()
 	T.UpdateDBCurrency()
 end
+
+------------------------------------------------------
+-- Tracking currency transfer
+------------------------------------------------------
+
+function T.RequestCurrencyFromAccountCharacter(sourceCharacterGUID, currencyID, quantity)
+	assert(T.PendingCurrencyTransfer == nil)
+	local currencyData = C_CurrencyInfo.FetchCurrencyDataFromAccountCharacters(currencyID)
+	for _, data in pairs(currencyData) do
+		if data.characterGUID == sourceCharacterGUID then
+			local characterName, realmName = strsplit("-", data.fullCharacterName)
+			-- print(characterName, realmName, "before:", data.quantity)
+			T.PendingCurrencyTransfer = {
+				sourceCharacterGUID = sourceCharacterGUID,
+				sourceCharacter = characterName,
+				sourceRealm = realmName,
+				currencyID = currencyID,
+				quantity = quantity
+			}
+			break
+		end
+	end
+end
+	
+hooksecurefunc(C_CurrencyInfo, "RequestCurrencyFromAccountCharacter", T.RequestCurrencyFromAccountCharacter)
+
+-- TODO this or trust CURRENCY_TRANSFER_SUCCESS?
+function Events:CHAT_MSG_CURRENCY(message, ...)
+	local source, currencyLink, amount, destination = T:FormatMatch(message, "CURRENCY_TRANSFER_SUCCESS_MESSAGE")
+	if source and T.PendingCurrencyTransfer then
+		local linkType, linkOptions = LinkUtil.ExtractLink(currencyLink)
+		assert(linkType == "currency")
+		local currencyID = LinkUtil.SplitLinkOptions(linkOptions)
+		local currencyData = C_CurrencyInfo.FetchCurrencyDataFromAccountCharacters(currencyID)
+		for _, data in pairs(currencyData) do
+			if data.characterGUID == T.PendingCurrencyTransfer.sourceCharacterGUID then
+				local characterName, realmName = strsplit("-", data.fullCharacterName)
+				-- print(characterName, realmName, "after:", data.quantity)
+				-- TODO account for transfers with conversion cost
+				local dbCharacter = DB[realmName] and DB[realmName][characterName]
+				assert(dbCharacter)
+				if not dbCharacter.currency then
+					dbCharacter.currency = {}
+				end
+				dbCharacter.currency[data.currencyID] = data.quantity
+				break
+			end
+		end
+		T.PendingCurrencyTransfer = nil
+	end
+end
+
+
 
 ------------------------------------------------------
 -- Saved data management 
