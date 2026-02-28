@@ -269,6 +269,7 @@ function T:TooltipAddItemInfo(tooltip, itemID)
     end
     
     -- guild banks
+    -- TODO distinguish inaccessible guild items 
     if T.Settings.GuildTooltip then
         for realmName, dbRealm in pairs(GB) do
             for guildName, dbGuild in pairs(dbRealm) do
@@ -357,12 +358,37 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
         end
     end
     
-    -- warband bank last
+    -- warband bank
     local totalWarband, warbandSummary = Summary(inWarband)
     if totalWarband > 0 then
         local warbandLine = L.TooltipLinePlayer:format(ACCOUNT_BANK_PANEL_TITLE, warbandSummary)
         GameTooltip_AddColoredLine(tooltip, warbandLine, BRIGHTBLUE_FONT_COLOR, false)
     end
+    
+    -- guild banks
+    -- TODO distinguish inaccessible guild items 
+    if T.Settings.GuildTooltip then
+        for realmName, dbRealm in pairs(GB) do
+            for guildName, dbGuild in pairs(dbRealm) do
+                local inGuildBank = T.GuildItemCount(itemID, dbGuild)
+                
+                local inGuildBank = {}
+                inGuildBank[1] = T.CharacterItemCount(quality1, dbGuild)
+                inGuildBank[2] = T.CharacterItemCount(quality2, dbGuild)
+                inGuildBank[3] = T.CharacterItemCount(quality3, dbGuild)	
+
+                local formattedName = ("<%s>"):format(guildName)
+                if realmName ~= T.Realm then
+                    formattedName = L.PlayerRealm:format(formattedName, realmName)
+                end
+                local guildLine = TooltipLine(formattedName, inGuildBank, {0, 0, 0})
+                if guildLine then
+                    GameTooltip_AddColoredLine(tooltip, guildLine, BRIGHTBLUE_FONT_COLOR)
+                end
+            end
+        end
+    end
+
 end
 
 ------------------------------------------------------
