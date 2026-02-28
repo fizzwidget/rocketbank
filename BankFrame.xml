@@ -1,0 +1,299 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\..\Blizzard_SharedXML\UI.xsd">
+
+	<Frame name="GFW_BankPanelHeaderFrameTemplate" virtual="true">
+		<Size x="300" y="20"/>
+		<Layers>
+			<Layer level="BORDER">
+				<FontString parentKey="Text" inherits="GameFontHighlightMedium" maxLines="1" justifyH="CENTER">
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+	</Frame>
+
+	<Frame name="GFW_BankPanelMoneyFrameButtonTemplate" inherits="UIPanelButtonTemplate, DisabledTooltipButtonTemplate" virtual="true">
+		<Size x="105" y="21"/>
+		<KeyValues>
+			<!-- Disabled tooltip text is set dynamically -->
+			<KeyValue key="disabledTooltipAnchor" value="ANCHOR_RIGHT" type="string"/>
+		</KeyValues>
+	</Frame>
+
+	<Frame name="GFW_BankPanelMoneyFrameTemplate" mixin="GFW_BankPanelMoneyFrameMixin" virtual="true">
+		<Size x="180" y="25"/>
+		<Frames>
+			<Frame parentKey="Border" inherits="ThinGoldEdgeTemplate">
+				<Size x="178" y="19"/>
+				<Anchors>
+					<Anchor point="LEFT"/>
+				</Anchors>
+			</Frame>
+
+			<Frame parentKey="MoneyDisplay" inherits="SmallMoneyFrameTemplate" mixin="GFW_BankPanelMoneyFrameMoneyDisplayMixin">
+				<Anchors>
+					<Anchor point="RIGHT" relativeKey="$parent.Border"/>
+				</Anchors>
+				<Scripts>
+					<OnLoad method="OnLoad"/>
+					<OnEnter method="OnEnter"/>
+					<OnLeave method="OnLeave"/>
+				</Scripts>
+			</Frame>
+
+		</Frames>
+		<Scripts>
+			<OnShow method="OnShow"/>
+		</Scripts>
+	</Frame>
+
+	<Frame name="GFW_BankPanelEdgeShadowTemplate" setAllPoints="true" virtual="true">
+		<Layers>
+			<Layer level="BORDER">
+				<Texture parentKey="LeftTopCorner-Shadow" atlas="bank-frame-shadow-cornertopleft" useAtlasSize="true">
+					<Anchors>
+						<Anchor point="TOPLEFT" x="2" y="-22"/>
+					</Anchors>
+				</Texture>
+
+				<Texture parentKey="LeftBottomCorner-Shadow" atlas="bank-frame-shadow-cornerbottomleft" useAtlasSize="true">
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" x="2" y="2"/>
+					</Anchors>
+				</Texture>
+
+				<Texture parentKey="RightTopCorner-Shadow" atlas="bank-frame-shadow-cornertopright" useAtlasSize="true">
+					<Anchors>
+						<Anchor point="TOPRIGHT" x="-3" y="-22"/>
+					</Anchors>
+				</Texture>
+
+				<Texture parentKey="RightBottomCorner-Shadow" atlas="bank-frame-shadow-cornerbottomright" useAtlasSize="true">
+					<Anchors>
+						<Anchor point="BOTTOMRIGHT" x="-3" y="2"/>
+					</Anchors>
+				</Texture>
+
+				<Texture parentKey="Right-Shadow" atlas="!bank-frame-vert-shadow" vertTile="true" >
+					<Size x="17" y="256"/>
+					<Anchors>
+						<Anchor point="TOPRIGHT" relativeKey="$parent.RightTopCorner-Shadow" relativePoint="BOTTOMRIGHT"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.RightBottomCorner-Shadow" relativePoint="TOPRIGHT"/>
+					</Anchors>
+					<TexCoords left="0.01562500" right="0.28125000" top="0.00000000" bottom="1.00000000"/>
+				</Texture>
+
+				<Texture parentKey="Left-Shadow" atlas="!bank-frame-vert-shadow" vertTile="true" >
+					<Size x="17" y="256"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.LeftTopCorner-Shadow" relativePoint="BOTTOMLEFT"/>
+						<Anchor point="BOTTOMLEFT" relativeKey="$parent.LeftBottomCorner-Shadow" relativePoint="TOPLEFT"/>
+					</Anchors>
+					<TexCoords left="0.31250000" right="0.57812500" top="0.00000000" bottom="1.00000000"/>
+				</Texture>
+
+				<Texture parentKey="Bottom-Shadow" atlas="_bank-frame-horiz-shadow" horizTile="true" >
+					<Size x="256" y="17"/>
+					<Anchors>
+						<Anchor point="BOTTOMLEFT" relativeKey="$parent.LeftBottomCorner-Shadow" relativePoint="BOTTOMRIGHT"/>
+						<Anchor point="BOTTOMRIGHT" relativeKey="$parent.RightBottomCorner-Shadow" relativePoint="BOTTOMLEFT"/>
+					</Anchors>
+					<TexCoords left="0.00000000" right="1.00000000" top="0.01562500" bottom="0.28125000"/>
+				</Texture>
+
+				<Texture parentKey="Top-Shadow" atlas="_bank-frame-horiz-shadow" horizTile="true" >
+					<Size x="256" y="17"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" relativeKey="$parent.LeftTopCorner-Shadow" relativePoint="TOPRIGHT"/>
+						<Anchor point="TOPRIGHT" relativeKey="$parent.RightTopCorner-Shadow" relativePoint="TOPLEFT"/>
+					</Anchors>
+					<TexCoords left="0.00000000" right="1.00000000" top="0.31250000" bottom="0.57812500"/>
+				</Texture>
+			</Layer>
+		</Layers>
+	</Frame>
+
+	<EditBox name="GFW_BankItemSearchBoxTemplate" inherits="BagSearchBoxTemplate" letters="15" virtual="true">
+		<Size x="110" y="20"/>
+	</EditBox>
+
+	<Button name="GFW_BankPanelTabTemplate" mixin="GFW_BankPanelTabMixin" inherits="CallbackRegistrantTemplate" virtual="true">
+		<Size x="32" y="32"/>
+		<Layers>
+			<Layer level="BORDER">
+				<Texture parentKey="Border" file="Interface\SpellBook\SpellBook-SkillLineTab">
+					<Size x="64" y="64"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" x="-3" y="11"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="ARTWORK">
+				<Texture parentKey="Icon" setAllPoints="true"/>
+			</Layer>
+			<Layer level="ARTWORK" textureSubLevel="1">
+				<Texture parentKey="SearchOverlay" setAllPoints="true" hidden="true">
+					<Color r="0" g="0" b="0" a="0.8" />
+				</Texture>
+			</Layer>
+			<Layer level="OVERLAY">
+				<Texture parentKey="SelectedTexture" file="Interface\Buttons\CheckButtonHilight" alphaMode="ADD">
+					<Size x="32" y="32"/>
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Animations>
+			<AnimationGroup parentKey="TabContentsChangedAnim" looping="REPEAT" setToFinalAlpha="true">
+				<Alpha childKey="SelectedTexture" duration="0.9" order="1" fromAlpha="0" toAlpha="1" />
+				<Alpha childKey="SelectedTexture" duration="0.9" order="2" fromAlpha="1" toAlpha="0" />
+			</AnimationGroup>
+		</Animations>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+			<OnHide method="OnHide"/>
+			<OnEvent method="OnEvent"/>
+			<OnClick method="OnClick"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+		</Scripts>
+		<HighlightTexture file="Interface\Buttons\ButtonHilight-Square" alphaMode="ADD"/>
+	</Button>
+
+	<ItemButton name="GFW_BankItemButtonTemplate" mixin="GFW_BankPanelItemButtonMixin" virtual="true">
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="bags-item-slot64">
+					<Anchors>
+						<Anchor point="TOPLEFT"/>
+						<Anchor point="BOTTOMRIGHT"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="OVERLAY">
+				<Texture parentKey="IconQuestTexture">
+					<Size x="37" y="38"/>
+					<Anchors>
+						<Anchor point="TOP" x="0" y="0"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Cooldown parentKey="Cooldown" inherits="CooldownFrameTemplate"/>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
+			<OnClick method="OnClick"/>
+            <!-- <OnDragStart method="OnDragStart"/>
+            <OnReceiveDrag method="OnReceiveDrag"/> -->
+		</Scripts>
+	</ItemButton>
+
+	<Frame name="GFW_BankPanelTemplate" inherits="CallbackRegistrantTemplate" mixin="GFW_BankPanelMixin" virtual="true">
+		<KeyValues>
+			<KeyValue key="layoutType" value="InsetFrameTemplate" type="string"/>
+		</KeyValues>
+		<Frames>
+			<Frame parentKey="Header" inherits="GFW_BankPanelHeaderFrameTemplate">
+				<Anchors>
+					<Anchor point="TOP" y="-36"/>
+				</Anchors>
+			</Frame>
+
+			<Frame parentKey="MoneyFrame" inherits="GFW_BankPanelMoneyFrameTemplate">
+				<Anchors>
+					<Anchor point="BOTTOMRIGHT" x="-3" y="3"/>
+				</Anchors>
+			</Frame>
+
+			<Frame parentKey="NineSlice" useParentLevel="true" inherits="NineSlicePanelTemplate">
+				<Anchors>
+					<Anchor point="TOPLEFT" y="-20"/>
+					<Anchor point="BOTTOMRIGHT" y="30"/>
+				</Anchors>
+			</Frame>
+
+			<Frame parentKey="EdgeShadows" inherits="GFW_BankPanelEdgeShadowTemplate">
+				<Anchors>
+					<Anchor point="TOPLEFT"/>
+					<Anchor point="BOTTOMRIGHT" relativeKey="$parent.NineSlice" relativePoint="BOTTOMRIGHT"/>
+				</Anchors>
+			</Frame>
+
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+			<OnHide method="OnHide"/>
+			<OnEvent method="OnEvent"/>
+		</Scripts>
+	</Frame>
+
+	<Frame name="GFW_BankFrame" toplevel="true" movable="true" enableMouse="true" hidden="true" parent="UIParent" inherits="PortraitFrameTemplate, TabSystemOwnerTemplate, CallbackRegistrantTemplate" mixin="GFW_BankFrameMixin">
+		<Attributes>
+			<Attribute name="UIPanelLayout-defined" type="boolean" value="true"/>
+			<Attribute name="UIPanelLayout-enabled" type="boolean" value="true"/>
+			<Attribute name="UIPanelLayout-area" type="string" value="doublewide"/>
+			<Attribute name="UIPanelLayout-pushable" type="number" value="5"/>
+			<Attribute name="UIPanelLayout-whileDead" type="boolean" value="true"/>
+		</Attributes>
+		<Size x="738" y="460"/>
+		<Layers>
+			<Layer level="BACKGROUND">
+				<Texture parentKey="Background" atlas="bank-frame-background" horizTile="true" vertTile="true">
+					<Size x="256" y="256"/>
+					<Anchors>
+						<Anchor point="TOPLEFT" x="0" y="-20"/>
+						<Anchor point="BOTTOMRIGHT" y="30"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="BORDER">
+				<FontString name="GFW_BankFrameTitleText" inherits="GameFontHighlight">
+					<Anchors>
+						<Anchor point="CENTER" x="-3" y="233"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
+		<Frames>
+			<Frame parentKey="TabSystem" inherits="TabSystemTemplate">
+				<KeyValues>
+					<KeyValue key="minTabWidth" value="100" type="number"/>
+					<KeyValue key="maxTabWidth" value="150" type="number"/>
+				</KeyValues>
+				<Anchors>
+					<Anchor point="TOPLEFT" relativePoint="BOTTOMLEFT" x="22" y="2"/>
+				</Anchors>
+			</Frame>
+
+			<EditBox name="GFW_BankItemSearchBox" parentKey="BankItemSearchBox" inherits="GFW_BankItemSearchBoxTemplate">
+				<Size x="110" y="20"/>
+				<Anchors>
+					<Anchor point="TOPRIGHT" x="-20" y="-33"/>
+				</Anchors>
+			</EditBox>
+
+			<Frame name="GFW_BankPanel" parentKey="BankPanel" useParentLevel="true" hidden="true" inherits="GFW_BankPanelTemplate">
+				<Size x="738" y="460"/>
+				<Anchors>
+					<Anchor point="LEFT"/>
+				</Anchors>
+			</Frame>
+		</Frames>
+		<Scripts>
+			<OnLoad method="OnLoad"/>
+			<OnShow method="OnShow"/>
+			<OnHide method="OnHide"/>
+		</Scripts>
+	</Frame>
+
+</Ui>
