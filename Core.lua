@@ -100,14 +100,14 @@ local ITEM_INFO_RETRY_DELAY = 1.0
 T.ReagentQualityQueue = {}
 function T.CacheReagentQualityItems(itemID)
 	if RQ[itemID] then
-		local name, link = C_Item.GetItemInfo(itemID)
-		print("already cached", itemID, link, unpack(RQ[itemID]))
+		-- local name, link = C_Item.GetItemInfo(itemID)
+		-- print("already cached", itemID, link, unpack(RQ[itemID]))
 		T.ReagentQualityQueue[itemID] = nil
 		return
 	end
 	local info = {C_Item.GetItemInfo(itemID)}
 	if not info then
-		print("missing info, queued check for", itemID, quality)
+		-- print("missing info, queued check for", itemID, quality)
 		T.ReagentQualityQueue[itemID] = 1
 		if not T.ReagentQualityRetryTimer then
 			T.ReagentQualityRetryTimer = C_Timer.NewTicker(ITEM_INFO_RETRY_DELAY, T.ProcessReagentQualityQueue)
@@ -117,7 +117,7 @@ function T.CacheReagentQualityItems(itemID)
 	local name, link = info[1], info[2]
 	local isReagent = info[17]
 	if not isReagent then
-		print(itemID, link, "not a reagent with quality levels")
+		-- print(itemID, link, "not a reagent with quality levels")
 		T.ReagentQualityQueue[itemID] = nil
 		return
 	end
@@ -127,10 +127,10 @@ function T.CacheReagentQualityItems(itemID)
 		RQ[qualities[2]] = qualities
 		RQ[qualities[3]] = qualities
 		
-		print("cached", link, unpack(qualities))
+		-- print("cached", link, unpack(qualities))
 		T.ReagentQualityQueue[itemID] = nil
 	else
-		print("can't find qualities, queued check for", itemID, quality)
+		-- print("can't find qualities, queued check for", itemID, quality)
 		T.ReagentQualityQueue[itemID] = 1
 		if not T.ReagentQualityRetryTimer then
 			T.ReagentQualityRetryTimer = C_Timer.NewTicker(ITEM_INFO_RETRY_DELAY, T.ProcessReagentQualityQueue)
@@ -145,11 +145,11 @@ function T.ProcessReagentQualityQueue(timer)
 		T.CacheReagentQualityItems(itemID)
 	end
 	if count == 0 then
-		print("queue empty, canceling timer")
+		-- print("queue empty, canceling timer")
 		T.ReagentQualityRetryTimer:Cancel()
 		T.ReagentQualityRetryTimer = nil
 	else
-		print("queue processed", count)
+		-- print("queue processed", count)
 	end
 end
 
