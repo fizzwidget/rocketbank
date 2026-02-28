@@ -363,6 +363,7 @@ function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
 		local info = {T.GetItemInfo(itemID)}
 		-- TODO what if info not cached? maybe just include quality in saved DB?
 		-- TODO or maybe keep lazy, but update bank frame on client recache
+		-- if not cached, we'll get UI refresh on GET_ITEM_INFO_RECEIVED
 		
 		self.itemInfo = {
 			hyperlink = dbInfo.l,
@@ -370,6 +371,7 @@ function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
 			itemID = itemID,
 			iconFileID = C_Item.GetItemIconByID(dbInfo.l),
 			quality = info[3]
+			quality = info and info[3]
 		}
 	else
 		self.itemInfo = nil
@@ -411,6 +413,7 @@ local BankPanelEvents = {
 	"INVENTORY_SEARCH_UPDATE",
 	"ITEM_LOCK_CHANGED",
 	"PLAYER_MONEY",
+	"GET_ITEM_INFO_RECEIVED" -- causes UI refresh to fill in quality colors
 };
 
 GFW_BankPanelMixin:GenerateCallbackEvents(
