@@ -320,6 +320,14 @@ function Events:BAG_UPDATE_DELAYED()
 	T.ProcessBagUpdateQueue()
 end
 
+function Events:PLAYER_MONEY()
+	T.UpdateDBMoney()	
+end
+
+-- function Events:ACCOUNT_MONEY()
+	-- TODO warband money	
+-- end
+
 function T.ProcessBagUpdateQueue()
 	for bagID in pairs(T.BagUpdateQueue) do
 		-- print("handling queued UpdateDBForBag", bagID)
