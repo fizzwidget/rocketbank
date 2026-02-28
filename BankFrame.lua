@@ -80,6 +80,7 @@ end
 -- TODO investigate ways to reuse bliz code without inheriting template/mixin
 -- GFW_BankFrameMixin.InitializeTabSystem = BankFrameMixin.InitializeTabSystem etc?
 function GFW_BankFrameMixin:InitializeTabSystem()
+	self.TabSystem.minTabWidth = self.TabSystem.minTabWidth + 16
 	self:SetTabSystem(self.TabSystem);
 	self:GenerateTabs();
 end
@@ -103,6 +104,23 @@ function GFW_BankFrameMixin:GenerateTabs()
 	self.TabIDToBankType[id] = TabType.Warband
 	
 	-- TODO highlight tabs with search results
+end
+
+function GFW_BankFrameMixin:UpdateTabIndicators()
+	for tabID, tabType in pairs(self.TabIDToBankType) do
+		local button = self.TabSystem:GetTabButton(tabID)
+		if not button.SearchHighlight then
+			button.SearchHighlight = button:CreateTexture()
+			button.SearchHighlight:SetPoint("RIGHT", button.Text)
+			button.SearchHighlight:SetSize(16, 16)
+			button.SearchHighlight:SetAtlas("UI-HUD-MicroMenu-Communities-Icon-Notification")
+		end
+		if self.BankPanel.matchingTabTypes[tabType] then
+			button.SearchHighlight:Show()
+		else
+			button.SearchHighlight:Hide()
+		end
+	end
 end
 
 function GFW_BankFrameMixin:SetTab(tabID)
@@ -349,6 +367,7 @@ function GFW_BankPanelItemButtonMixin:UpdateFilter(pattern)
 		if tabData then
 			tabData.hasMatch = true
 		end
+		return true
 	end
 end
 
@@ -959,35 +978,80 @@ end
 function GFW_BankPanelMixin:UpdateSearchResults()
 	local pattern = strlower(GFW_BankItemSearchBox:GetText())
 	
-	-- TODO search across bankType tabTypes
 	-- TODO search across characters/guilds
-	-- will these searches be slow? can we do them as background tasks of some sort?
+	-- will these searches be slow? can we do them as background tasks of some sort? should we debounce input?
 
-	-- search inactive tabs only enough to see if there's a match
-	local who, realm, type = SplitBankType(self.bankType)
-	local dbBags
-	if type == TabType.Warband then
-		dbBags = WB.bags
-	elseif type == TabType.Guild then
-		-- nil if unguilded; won't enter loop because purchasedBankTabData empty
-		dbBags = T.Guild and GB[realm][who].bags
-	else
-		dbBags = DB[realm][who].bags
+	local function BagContainsMatch(bagData, pattern)
+		for slot = 1, (bagData.count or 0) do
+			local bagItemInfo = bagData[slot]
+			if bagItemInfo and not ItemFiltered(bagItemInfo.l, pattern) then
+				return true
+			end
+		end
 	end
+
+	local function BagCollection(who, realm, tabType)
+		if tabType == TabType.Warband then
+			return WB.bags
+		elseif tabType == TabType.Guild then
+			-- empty if unguilded
+			return who and GB[realm][who].bags or {}
+		else
+			return DB[realm][who].bags
+		end
+	end
+	
+	-- search non-selected tabTypes
+	local currentWho, currentRealm, currentTabType = SplitBankType(self.bankType)
+	self.matchingTabTypes = {}
+	for _, tabType in pairs(TabType) do
+		if pattern ~= "" and tabType ~= currentTabType then
+			local searchWho, searchRealm = SplitBankType(self:BankTypeForTabType(tabType))
+			if tabType == TabType.Guild then
+				searchWho = T.Guild
+			end
+			if tabType == TabType.Inventory and BagContainsMatch(DB[searchRealm][searchWho].equipped, pattern) then
+				self.matchingTabTypes[tabType] = true
+				-- print("match in equipped")
+				-- no need to check bags if match in equipped 
+			else
+				local dbBags = BagCollection(searchWho, searchRealm, tabType)
+				local first, last
+				if tabType == TabType.Inventory then
+					first = 0
+					last = NUM_TOTAL_EQUIPPED_BAG_SLOTS
+				elseif tabType == TabType.Guild then
+					first = 1
+				else
+					first = ITEM_INVENTORY_BANK_BAG_OFFSET + 1
+				end
+				for bagID = first, last or dbBags.last do
+					local dbBag = dbBags[bagID]
+					if dbBag and BagContainsMatch(dbBag, pattern) then
+						self.matchingTabTypes[tabType] = true
+						-- print("match in", bagID, tabType)
+						-- stop at first matching bag
+						-- only need to know if at least one match in this tabType
+						break
+					end
+				end
+			end
+		end
+	end
+	
+	-- search inactive tabs in current type
+	local dbBags = BagCollection(currentWho, currentRealm, currentTabType)
 	for _, tabData in ipairs(self.purchasedBankTabData) do
 		tabData.hasMatch = nil
 		if pattern ~= "" and tabData.ID ~= self:GetSelectedTabID() then
 			local dbBag = dbBags[tabData.ID]
-			if type == TabType.Inventory and bagID == INVENTORY_FAKE_BAGID then
-				dbBag = DB[realm][who].equipped
+			if currentTabType == TabType.Inventory and bagID == INVENTORY_FAKE_BAGID then
+				dbBag = DB[currentRealm][currentWho].equipped
 			end
-			for slot = 1, dbBag.count do
-				local bagItemInfo = dbBag[slot]
-				if bagItemInfo and not ItemFiltered(bagItemInfo.l, pattern) then
-					tabData.hasMatch = true
-					-- print("match in",tabData.ID)
-					break
-				end
+			if BagContainsMatch(dbBag, pattern) then
+				tabData.hasMatch = true
+				self.matchingTabTypes[currentTabType] = true
+				-- print("match in",tabData.ID)
 			end
 		end
 	end
@@ -995,10 +1059,14 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 	-- search active tab by item slots
 	for itemButton in self:EnumerateValidItems() do
 		if itemButton.itemInfo then
-			itemButton:UpdateFilter(pattern)
+			if itemButton:UpdateFilter(pattern) and pattern ~= "" then
+				self.matchingTabTypes[currentTabType] = true
+			end
 		end
 	end
 
+	-- show indicators on tabs
+	GFW_BankFrame:UpdateTabIndicators()
 end
 
 function GFW_BankPanelMixin:EnumerateValidItems()
