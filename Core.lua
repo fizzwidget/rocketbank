@@ -260,6 +260,11 @@ if not _G[addonName.."_DB"] then
 end
 local DB = _G[addonName.."_DB"]
 
+if not _G[addonName.."_Warband"] then
+	_G[addonName.."_Warband"] = {}
+end
+local WB = _G[addonName.."_Warband"]
+
 --[[
 DB = {
 	[realmName] = {
@@ -293,14 +298,21 @@ DB = {
 			money = 10000, -- copper
 			updated = 1755412000, -- server time since epoch (sec)
 		}
-	}
-}	
+	},
+}
+WB = {
+	bags = { ... } -- same as character bags but bagID 12+
+	money = 10000, -- same as character
+	updated = 1755412000, -- same as character
+}
+	
 ]]
 
 function Events:PLAYER_ENTERING_WORLD()
 	T.InitializeDB()
 	T.UpdateDBForAllBags()
 	T.UpdateDBMoney()
+	T.UpdateWarbankMoney()
 end
 
 function Events:BANKFRAME_OPENED()
@@ -326,9 +338,9 @@ function Events:PLAYER_MONEY()
 	T.UpdateDBMoney()	
 end
 
--- function Events:ACCOUNT_MONEY()
-	-- TODO warband money	
--- end
+function Events:ACCOUNT_MONEY()
+	T.UpdateWarbankMoney()	
+end
 
 function T.ProcessBagUpdateQueue()
 	for bagID in pairs(T.BagUpdateQueue) do
@@ -350,6 +362,12 @@ function T.InitializeDB()
 		DB[T.Realm][T.Player].bags = {}
 	end
 	
+	if not WB then
+		WB = {}
+	end
+	if not WB.bags then
+		WB.bags = {}
+	end
 end
 
 function T.UpdateDBForAllBags(includeBank)
@@ -360,6 +378,10 @@ function T.UpdateDBForAllBags(includeBank)
 	local lastBagID = max(unpack(bankTabIDs))
 	DB[T.Realm][T.Player].bags.last = lastBagID
 
+	local warbandTabIDs = C_Bank.FetchPurchasedBankTabIDs(Enum.BankType.Account)
+	local lastWarbandTabID = max(unpack(warbandTabIDs))
+	WB.bags.last = lastWarbandTabID
+	
 	if includeBank and T.BankIsOpen then
 		for _, bagID in pairs(bankTabIDs) do
 			T.UpdateDBForBag(bagID)	
@@ -374,6 +396,20 @@ function T.UpdateDBForAllBags(includeBank)
 			dbBag.link = tabData.name
 		end
 		-- TODO warbank, warbank tab info
+		
+		for _, bagID in pairs(warbandTabIDs) do
+			T.UpdateDBForBag(bagID)	
+		end
+		
+		-- bags already saved, update info for bank-tab bags
+		local data = C_Bank.FetchPurchasedBankTabData(Enum.BankType.Account)
+		for _, tabData in pairs(data) do
+			local dbBag = WB.bags[tabData.ID]
+			assert(dbBag, "should have been created already")
+			dbBag.icon = tabData.icon
+			dbBag.link = tabData.name
+		end
+
 	end
 end
 
@@ -387,11 +423,16 @@ function T.BagIDIsBankType(bagID, bankType)
 end
 
 function T.UpdateDBForBag(bagID)
+	
+	local dbCharacter = DB[T.Realm][T.Player]
+	-- can be character section of DB, specific-guild section of GB, or WB
+	
 	if T.BagIDIsBankType(bagID, Enum.BankType.Account) then
-		-- print("don't save warband bank", bagID) -- for now
-		-- it'll need different storage so it's not repeated across characters
-		-- and reading item counts doesn't need it
-		return
+		dbCharacter = WB
+		if not T.BankIsOpen then
+			-- print("don't save warband bank when not at bank", bagID)
+			return
+		end
 	end 
 
 	if T.BagIDIsBankType(bagID, Enum.BankType.Guild) then
@@ -408,7 +449,6 @@ function T.UpdateDBForBag(bagID)
 	local inventoryID = C_Container.ContainerIDToInventoryID(bagID)
 	local bagItemLink = GetInventoryItemLink("player", inventoryID)
 	
-	local dbCharacter = DB[T.Realm][T.Player]
 	-- save as empty bag slot if no bag equipped
 	if not bagItemLink then
 		dbCharacter.bags[bagID] = nil
@@ -467,6 +507,15 @@ function T.UpdateDBMoney()
 	dbCharacter.updated = GetServerTime()
 end
 
+function T.UpdateWarbankMoney()
+	WB.money = C_Bank.FetchDepositedMoney(Enum.BankType.Account)
+	WB.updated = GetServerTime()
+	-- print("updated warband money", WB.money)
+end
+
+function T.UpdateGuildMoney()
+	-- C_Bank.FetchDepositedMoney(Enum.BankType.Guild)
+end
 
 ------------------------------------------------------
 -- Item tooltip 
