@@ -31,16 +31,25 @@ T.Realm = strtrim(GetRealmName())
 T.Player = UnitName("player")
 
 ------------------------------------------------------
--- Bank preview frame
+-- Bank preview frame launch conveniences
 ------------------------------------------------------
 
-function T.ShowBank()
-	GFW_BankFrame:SetPortraitTextureRaw("Interface/Icons/ability_racial_timeismoney");
-	ShowUIPanel(GFW_BankFrame);
+function T.ToggleBank()
+	if GFW_BankFrame:IsVisible() then
+		HideUIPanel(GFW_BankFrame)
+	else
+		GFW_BankFrame:SetPortraitTextureRaw("Interface/Icons/ability_racial_timeismoney")
+		ShowUIPanel(GFW_BankFrame)
+	end
 end
 
 SLASH_GFW_BANK1 = "/bank"
-SlashCmdList["GFW_BANK"] = T.ShowBank
+SlashCmdList["GFW_BANK"] = T.ToggleBank
+
+function GFW_Bank_OnAddonCompartmentClick(name, button)
+	-- LeftButton vs RightButton actions?
+	T.ToggleBank()
+end
 
 ------------------------------------------------------
 -- Utilities
