@@ -13,6 +13,9 @@
 Localization.lua
 Core.lua
 
+# tooltips
+Tooltip.lua
+
 # bank display
 BankFrame.lua
 BankFrame.xml
