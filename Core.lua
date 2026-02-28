@@ -98,24 +98,39 @@ local RQ = _G[addonName.."_ReagentQualityCache"]
 
 local ITEM_INFO_RETRY_DELAY = 1.0
 T.ReagentQualityQueue = {}
-function CacheReagentQualityItems(itemID)
+function T.CacheReagentQualityItems(itemID)
 	if RQ[itemID] then
 		local name, link = C_Item.GetItemInfo(itemID)
-		-- print("already cached", link, unpack(RQ[itemID]))
+		print("already cached", itemID, link, unpack(RQ[itemID]))
 		T.ReagentQualityQueue[itemID] = nil
 		return
 	end
-	local qualities = {FindAllReagentQualityItems(itemID)}
+	local info = {C_Item.GetItemInfo(itemID)}
+	if not info then
+		print("missing info, queued check for", itemID, quality)
+		T.ReagentQualityQueue[itemID] = 1
+		if not T.ReagentQualityRetryTimer then
+			T.ReagentQualityRetryTimer = C_Timer.NewTicker(ITEM_INFO_RETRY_DELAY, T.ProcessReagentQualityQueue)
+		end
+		return
+	end
+	local name, link = info[1], info[2]
+	local isReagent = info[17]
+	if not isReagent then
+		print(itemID, link, "not a reagent with quality levels")
+		T.ReagentQualityQueue[itemID] = nil
+		return
+	end
+	local qualities = {T.FindAllReagentQualityItems(itemID)}
 	if qualities[1] and qualities[2] and qualities[3] then
 		RQ[qualities[1]] = qualities
 		RQ[qualities[2]] = qualities
 		RQ[qualities[3]] = qualities
 		
-		local name, link = C_Item.GetItemInfo(itemID)
-		-- print("cached", link, unpack(qualities))
+		print("cached", link, unpack(qualities))
 		T.ReagentQualityQueue[itemID] = nil
 	else
-		-- print("queued check for", itemID)
+		print("can't find qualities, queued check for", itemID, quality)
 		T.ReagentQualityQueue[itemID] = 1
 		if not T.ReagentQualityRetryTimer then
 			T.ReagentQualityRetryTimer = C_Timer.NewTicker(ITEM_INFO_RETRY_DELAY, T.ProcessReagentQualityQueue)
@@ -127,18 +142,18 @@ function T.ProcessReagentQualityQueue(timer)
 	local count = 0
 	for itemID in pairs(T.ReagentQualityQueue) do
 		count = count + 1
-		CacheReagentQualityItems(itemID)
+		T.CacheReagentQualityItems(itemID)
 	end
 	if count == 0 then
-		-- print("queue empty, canceling timer")
+		print("queue empty, canceling timer")
 		T.ReagentQualityRetryTimer:Cancel()
 		T.ReagentQualityRetryTimer = nil
 	else
-		-- print("queue processed", count)
+		print("queue processed", count)
 	end
 end
 
-function FindAllReagentQualityItems(itemID)
+function T.FindAllReagentQualityItems(itemID, quality)
 	local name, link = C_Item.GetItemInfo(itemID)
 	local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemID)
 	-- print("finding qualities for", itemID, name, quality)
@@ -330,6 +345,15 @@ function T.UpdateDBForBag(bagID)
 				l = data.hyperlink,
 				c = data.stackCount > 1 and data.stackCount or nil
 			}
+			
+			-- if it's a crafting reagent
+			-- make sure we know all three qualities of the same reagent
+			local itemID = GetItemInfoFromHyperlink(data.hyperlink)
+			local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemID)
+			if quality then
+				T.CacheReagentQualityItems(itemID)
+			end
+			
 			-- print("-", data.hyperlink, "x", data.stackCount)
 		end
 	end
