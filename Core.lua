@@ -382,8 +382,11 @@ hooksecurefunc(C_CurrencyInfo, "RequestCurrencyFromAccountCharacter", T.RequestC
 
 -- TODO this or trust CURRENCY_TRANSFER_SUCCESS?
 function Events:CHAT_MSG_CURRENCY(message, ...)
+	if not T.PendingCurrencyTransfer then return end
+	-- TODO can't test chat msg in combat, secret value -- is this enough to avoid it?
+	
 	local source, currencyLink, amount, destination = T:FormatMatch(message, "CURRENCY_TRANSFER_SUCCESS_MESSAGE")
-	if source and T.PendingCurrencyTransfer then
+	if source then
 		local linkType, linkOptions = LinkUtil.ExtractLink(currencyLink)
 		assert(linkType == "currency")
 		local currencyID = LinkUtil.SplitLinkOptions(linkOptions)
