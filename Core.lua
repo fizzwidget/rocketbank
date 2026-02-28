@@ -31,6 +31,18 @@ T.Realm = strtrim(GetRealmName())
 T.Player = UnitName("player")
 
 ------------------------------------------------------
+-- Bank preview frame
+------------------------------------------------------
+
+function T.ShowBank()
+	GFW_BankFrame:SetPortraitTextureRaw("Interface/Icons/ability_racial_timeismoney");
+	ShowUIPanel(GFW_BankFrame);
+end
+
+SLASH_GFW_BANK1 = "/bank"
+SlashCmdList["GFW_BANK"] = T.ShowBank
+
+------------------------------------------------------
 -- Utilities
 ------------------------------------------------------
 

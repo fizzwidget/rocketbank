@@ -1,11 +1,6 @@
 local addonName, T = ...
 local DB = _G[addonName.."_DB"]
 
-function GFW_BankFrame_Open()
-	GFW_BankFrame:SetPortraitTextureRaw("Interface/Icons/ability_racial_timeismoney");
-	ShowUIPanel(GFW_BankFrame);
-end
-
 -- participate in synchronized inventory search
 tinsert(ITEM_SEARCHBAR_LIST, "GFW_BankItemSearchBox")
 
@@ -28,6 +23,8 @@ function GFW_BankFrameMixin:OnTitleUpdateRequested(titleText)
 	self:SetTitle(titleText);
 end
 
+-- TODO investigate ways to reuse bliz code without inheriting template/mixin
+-- GFW_BankFrameMixin.InitializeTabSystem = BankFrameMixin.InitializeTabSystem etc?
 function GFW_BankFrameMixin:InitializeTabSystem()
 	self:SetTabSystem(self.TabSystem);
 	self:GenerateTabs();
@@ -35,7 +32,7 @@ end
 
 function GFW_BankFrameMixin:GenerateTabs()
 	-- TODO use tabs and banktype for player/guild/warband
-	-- TODO put characters in a popup because too many tabs will overflow
+	-- TODO characters in a popup instead because tabs overflow w/ too many chars
 	
 	self.TabIDToBankType = {}
 	
@@ -318,6 +315,7 @@ end
 function GFW_BankPanelItemButtonMixin:UpdateFilter(pattern)
 	if not self.itemInfo then return end
 	
+	-- TODO BUG filter overlay not hiding sometimes
 	local isFiltered = ItemFiltered(self.itemInfo.hyperlink, pattern)
 	self.itemInfo.isFiltered = isFiltered
 	self:SetMatchesSearch(not isFiltered);
@@ -357,7 +355,8 @@ function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
 	if dbInfo then
 		local itemID = GetItemInfoFromHyperlink(dbInfo.l)
 		local info = {T.GetItemInfo(itemID)}
-		-- TODO what if info not cached? maybe just put it in DB
+		-- TODO what if info not cached? maybe just include quality in saved DB?
+		-- TODO or maybe keep lazy, but update bank frame on client recache
 		
 		self.itemInfo = {
 			hyperlink = dbInfo.l,
@@ -750,12 +749,9 @@ function GFW_BankPanelMoneyFrameMixin:Refresh()
 	end
 
 	self:RefreshContents();
-	-- self:UpdateMoneyDisplayAnchoring();
 end
 
 function GFW_BankPanelMoneyFrameMixin:RefreshContents()
-	-- self.WithdrawButton:Refresh();
-	-- self.DepositButton:Refresh();
 	self.MoneyDisplay:Refresh();
 end
 
@@ -811,11 +807,11 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:DisableMoneyPopupFunctionality
 end
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:Refresh()
+	-- TODO not updating when switching characters
 	local player, realm = strsplit("-", GFW_BankPanelSystemMixin:GetActiveBankType())
 	local dbCharacter = DB[realm][player]
 	
 	MoneyFrame_SetType(self, "STATIC");
 	self.staticMoney = dbCharacter.money
-	-- MoneyFrame_UpdateMoney(self);
 end
 
