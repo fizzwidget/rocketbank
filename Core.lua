@@ -59,7 +59,7 @@ function T.CharacterItemCount(itemID, dbCharacter)
 			if bagItemInfo then
 				local bagItemID = GetItemInfoFromHyperlink(bagItemInfo.l)
 				if bagItemID == itemID then
-					count = count + bagItemInfo.c
+					count = count + (bagItemInfo.c or 1)
 				end	
 			end
 		end
@@ -145,7 +145,23 @@ function Events:BANKFRAME_CLOSED()
 	T.BankIsOpen = false
 end
 
--- TODO update DB on BAG_UPDATE (with some deferred processing?)
+T.BagUpdateQueue = {}
+function Events:BAG_UPDATE(bagID)
+	-- print("queuing bag", bagID)
+	T.BagUpdateQueue[bagID] = true
+end
+
+function Events:BAG_UPDATE_DELAYED()
+	T.ProcessBagUpdateQueue()
+end
+
+function T.ProcessBagUpdateQueue()
+	for bagID in pairs(T.BagUpdateQueue) do
+		-- print("handling queued UpdateDBForBag", bagID)
+		T.UpdateDBForBag(bagID)
+	end
+	wipe(T.BagUpdateQueue)
+end
 
 function T.InitializeDB()
 	T.Realm = strtrim(GetRealmName())
@@ -180,6 +196,11 @@ function T.UpdateDBForAllBags(includeBank)
 end
 
 function T.UpdateDBForBag(bagID)
+	if bagID > ITEM_INVENTORY_BANK_BAG_OFFSET and not T.BankIsOpen then
+		-- don't update bank bags when not at bank
+		return
+	end
+	
 	local inventoryID = C_Container.ContainerIDToInventoryID(bagID)
 	local bagItemLink = GetInventoryItemLink("player", inventoryID)
 	
@@ -196,6 +217,7 @@ function T.UpdateDBForBag(bagID)
 	local dbBag = DB[T.Realm][T.Player].bags[bagID]
 	dbBag.link = bagItemLink
 	dbBag.count = C_Container.GetContainerNumSlots(bagID)
+	-- print(bagID, ":", dbBag.link, dbBag.count, "slots")
 	
 	-- TODO: if bank / warbank tab, get/save tab info
 	
@@ -208,8 +230,9 @@ function T.UpdateDBForBag(bagID)
 			-- TODO more minimal by reducing hyperlink to link code only?
 			dbBag[slot] = {
 				l = data.hyperlink,
-				c = data.stackCount
+				c = data.stackCount > 1 and data.stackCount or nil
 			}
+			-- print("-", data.hyperlink, "x", data.stackCount)
 		end
 	end
 
