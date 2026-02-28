@@ -30,7 +30,6 @@ Built with spare parts from official bank machinery certified by the Undermine C
     - TODO guild bank
     - TODO equipped inventory
     - TODO currency
-    - TODO warband
     
 - Is neither a conspiracy to embezzle from faction governments nor a rocketway construction scheme to exploit settlers looking for housing in new lands
 

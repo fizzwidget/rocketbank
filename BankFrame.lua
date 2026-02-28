@@ -1,5 +1,6 @@
 local addonName, T = ...
 local DB = _G[addonName.."_DB"]
+local WB = _G[addonName.."_Warband"]
 local L = _G[addonName.."_Locale"].Text
 
 -- participate in synchronized inventory search
@@ -63,7 +64,6 @@ function GFW_BankFrameMixin:GenerateTabs()
 
 	id = self:AddNamedTab(ACCOUNT_BANK_PANEL_TITLE, self.BankPanel)
 	self.TabIDToBankType[id] = "WARBAND"
-	self.TabSystem:SetTabEnabled(id, false, ACCOUNT_BANK_PANEL_TITLE.." not yet implemented")
 	
 end
 
@@ -297,8 +297,6 @@ function GFW_BankPanelItemButtonMixin:GetBankType()
 end 
 
 function GFW_BankPanelItemButtonMixin:Init(bankType, bankTabID, containerSlotID)
-	-- input bankType is realm-character, which we need for looking up contents
-	
 	self:SetBankType(bankType);
 	self:UpdateVisualsForBankType();
 	self:SetBankTabID(bankTabID);
@@ -355,9 +353,14 @@ function GFW_BankPanelItemButtonMixin:Refresh()
 end
 
 function GFW_BankPanelItemButtonMixin:RefreshItemInfo()
-	local player, realm = SplitBankType(self.bankType)
-	local dbCharacterBags = DB[realm][player].bags
-	local dbInfo = dbCharacterBags[self.bankTabID][self.containerSlotID]
+	local who, realm, type = SplitBankType(self.bankType)
+	local dbBags
+	if type == "WARBAND" then
+		dbBags = WB.bags
+	else
+		dbBags = DB[realm][who].bags -- who can be guild for guild bank
+	end
+	local dbInfo = dbBags[self.bankTabID][self.containerSlotID]
 	
 	if dbInfo then
 		local itemID = GetItemInfoFromHyperlink(dbInfo.l)
@@ -533,9 +536,19 @@ function GFW_BankPanelMixin:GetSelectedTabData()
 end
 
 function GFW_BankPanelMixin:CreateCharacterMenu()
-	-- this list should be constant within session, so only create it once
-	if self.characterMenu then return end
 	
+	local _, _, type = SplitBankType(self.bankType)
+	if type == "WARBAND" then
+		if self.characterMenu then
+			self.characterMenu:Hide()
+		end
+		return
+	elseif self.characterMenu then
+		self.characterMenu:Show()
+		-- this list should be constant within session, so only create it once
+		return
+	end
+		
 	-- menu entry for current player character always comes first
 	self.characterList = { {T.Player, MakeBankType(T.Player, T.Realm)} }
 	
@@ -568,9 +581,11 @@ function GFW_BankPanelMixin:CreateCharacterMenu()
 	self.characterMenu:SetWidth(180)
 	
 	local function isSelected(characterInfo)
-		local selectedPlayer, selectedRealm = SplitBankType(characterInfo)
-		local player, realm = SplitBankType(self.bankType)
-		return selectedRealm == realm and selectedPlayer == player
+		-- match playerName|realmName only at start of playerName|realmName|tabType
+		return strfind(self.bankType, characterInfo, 1, true) == 1
+		-- 		local selectedPlayer, selectedRealm = SplitBankType(characterInfo)
+		-- local player, realm = SplitBankType(self.bankType)
+		-- return selectedRealm == realm and selectedPlayer == player
 	end
 	local function setSelected(characterInfo)
 		self:SetBankType(strjoin("|", characterInfo, "BANK"))
@@ -583,14 +598,30 @@ end
 function GFW_BankPanelMixin:BankTypeForTabType(tabType)
 	local currentType = self.bankType
 	if tabType == "BANK" or tabType == "INVENTORY" or tabType == "CURRENCY" then
-		local player, realm = SplitBankType(currentType)
+		-- try to select same player/realm as previous tab
+		local player, realm, type = SplitBankType(currentType)
+		if type == "GUILD_BANK" then
+			player = nil
+		end
+		if type == "WARBAND" then
+			player = nil
+			realm = nil
+		end
 		return MakeBankType(player or T.Player, realm or T.Realm, tabType)
 	elseif tabType == "GUILD_BANK" then
+		-- try to select same guild/realm as previous tab
 		local guild, realm = SplitBankType(currentType)
-		local guildName = GetGuildInfo("player") -- TODO can return nil if too early
-		return MakeBankType(guild, realm or T.Realm, tabType)
+		local guildName = GetGuildInfo("player") -- can return nil if too soon
+		if type ~= "GUILD_BANK" then
+			guild = nil
+		end
+		if type == "WARBAND" then
+			guild = nil
+			realm = nil
+		end
+		return MakeBankType(guild or guildName, realm or T.Realm, tabType)
 	elseif tabType == "WARBAND" then
-		return tabType
+		return MakeBankType(tabType, tabType, tabType) -- silly but makes stuff easy
 	else
 		error("illegal tabType")
 	end
@@ -616,9 +647,14 @@ function GFW_BankPanelMixin:SelectTab(tabID)
 end
 
 function GFW_BankPanelMixin:RefreshBankPanel()
-	local player, realm = SplitBankType(self.bankType)
-	local dbCharacter = DB[realm][player]
-	local serverTimeMS = dbCharacter.updated * 1000 * 1000
+	local who, realm, type = SplitBankType(self.bankType)
+	local db
+	if type == "WARBAND" then
+		db = WB
+	else
+		db = DB[realm][who] -- who can be guild for guild bank
+	end
+	local serverTimeMS = db.updated * 1000 * 1000
 	
 	local function GetFullDate(dateInfo)
 		local weekdayName = CALENDAR_WEEKDAY_NAMES[dateInfo.weekday];
@@ -683,11 +719,15 @@ end
 function GFW_BankPanelMixin:FetchPurchasedBankTabData()	
 	self.purchasedBankTabData = {}
 	
-	local player, realm = SplitBankType(self.bankType)
-	
-	local dbCharacterBags = DB[realm][player].bags
-	for bagID = ITEM_INVENTORY_BANK_BAG_OFFSET + 1, dbCharacterBags.last do
-		local bag = dbCharacterBags[bagID]
+	local who, realm, type = SplitBankType(self.bankType)
+	local dbBags
+	if type == "WARBAND" then
+		dbBags = WB.bags
+	else
+		dbBags = DB[realm][who].bags -- who can be guild for guild bank
+	end
+	for bagID = ITEM_INVENTORY_BANK_BAG_OFFSET + 1, dbBags.last do
+		local bag = dbBags[bagID]
 		if bag then
 			local link = bag.link -- is just a name if a bank bag
 			local icon = bag.icon or C_Item.GetItemIconByID(link)
@@ -783,12 +823,17 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 	local pattern = strlower(GFW_BankItemSearchBox:GetText())
 			
 	-- search inactive tabs only enough to see if there's a match
-	local player, realm = SplitBankType(self.bankType)
-	local dbCharacterBags = DB[realm][player].bags
+	local who, realm, type = SplitBankType(self.bankType)
+	local dbBags
+	if type == "WARBAND" then
+		dbBags = WB.bags
+	else
+		dbBags = DB[realm][who].bags -- who can be guild for guild bank
+	end
 	for _, tabData in ipairs(self.purchasedBankTabData) do
 		tabData.hasMatch = nil
 		if pattern ~= "" and tabData.ID ~= self:GetSelectedTabID() then
-			local dbBag = dbCharacterBags[tabData.ID]
+			local dbBag = dbBags[tabData.ID]
 			for slot = 1, dbBag.count do
 				local bagItemInfo = dbBag[slot]
 				if bagItemInfo and not ItemFiltered(bagItemInfo.l, pattern) then
@@ -897,10 +942,14 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:DisableMoneyPopupFunctionality
 end
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:Refresh()
-	local player, realm = SplitBankType(self:GetActiveBankType())
-
-	local dbCharacter = DB[realm][player]
+	local who, realm, type = SplitBankType(self:GetActiveBankType())
+	local db
+	if type == "WARBAND" then
+		db = WB
+	else
+		db = DB[realm][who] -- who can be guild for guild bank
+	end
 	
-	MoneyFrame_Update(self:GetName(), dbCharacter.money)
+	MoneyFrame_Update(self:GetName(), db.money)
 end
 
