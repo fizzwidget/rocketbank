@@ -11,6 +11,7 @@ local function MakeBankType(player, realm, type)
 end
 
 local function SplitBankType(bankType)
+	if not bankType then return end
 	return strsplit("|", bankType)
 end
 
@@ -41,33 +42,34 @@ function GFW_BankFrameMixin:InitializeTabSystem()
 end
 
 function GFW_BankFrameMixin:GenerateTabs()
-	-- TODO use tabs and banktype for player/guild/warband
-	-- TODO characters in a popup instead because tabs overflow w/ too many chars
 	
+	local id
 	self.TabIDToBankType = {}
 	
-	-- tab for current player character always comes first
-	local id = self:AddNamedTab(T.Player, self.BankPanel)
-	self.TabIDToBankType[id] = MakeBankType(T.Player, T.Realm)
+	id = self:AddNamedTab(BANK, self.BankPanel)
+	self.TabIDToBankType[id] = "BANK"
+	
+	id = self:AddNamedTab(INVENTORY_TOOLTIP, self.BankPanel)
+	self.TabIDToBankType[id] = "INVENTORY"
+	self.TabSystem:SetTabEnabled(id, false, INVENTORY_TOOLTIP.." not yet implemented")
+	
+	id = self:AddNamedTab(CURRENCY, self.BankPanel)
+	self.TabIDToBankType[id] = "CURRENCY"
+	self.TabSystem:SetTabEnabled(id, false, CURRENCY.." not yet implemented")
 
-	-- skip current player character when making rest of the list
-	for realmName, dbRealm in pairs(DB) do
-		for characterName, dbCharacter in pairs(dbRealm) do
-			if not (characterName == T.Player and realmName == T.Realm) then
-				local displayName = characterName
-				if realmName ~= T.Realm then
-					displayName = L.PlayerRealm:format(characterName, realmName)
-				end
-				local id = self:AddNamedTab(displayName, self.BankPanel)
-				self.TabIDToBankType[id] = MakeBankType(characterName, realmName)
-			end
-		end
-	end
+	id = self:AddNamedTab(GUILD_BANK, self.BankPanel)
+	self.TabIDToBankType[id] = "GUILD_BANK"
+	self.TabSystem:SetTabEnabled(id, false, GUILD_BANK.." not yet implemented")
+
+	id = self:AddNamedTab(ACCOUNT_BANK_PANEL_TITLE, self.BankPanel)
+	self.TabIDToBankType[id] = "WARBAND"
+	self.TabSystem:SetTabEnabled(id, false, ACCOUNT_BANK_PANEL_TITLE.." not yet implemented")
 	
 end
 
 function GFW_BankFrameMixin:SetTab(tabID)
-	self.BankPanel:SetBankType(self.TabIDToBankType[tabID]);
+	local bankType = self.BankPanel:BankTypeForTabType(self.TabIDToBankType[tabID])
+	self.BankPanel:SetBankType(bankType);
 	TabSystemOwnerMixin.SetTab(self, tabID);
 	self:UpdateWidthForSelectedTab();
 end
@@ -78,23 +80,11 @@ function GFW_BankFrameMixin:UpdateWidthForSelectedTab()
 	UpdateUIPanelPositions(self);
 end
 
-function GFW_BankFrameMixin:RefreshTabVisibility()
-	-- TODO? tab per character, maybe we don't need to hide/show
-	
-	-- for _index, tabID in ipairs(self:GetTabSet()) do
-	-- 	self.TabSystem:SetTabShown(tabID, C_Bank.CanViewBank(self.TabIDToBankType[tabID]));
-	-- end
-end
-
 function GFW_BankFrameMixin:SelectDefaultTab()
-	self:SelectFirstAvailableTab();
-end
-
-function GFW_BankFrameMixin:SelectFirstAvailableTab()
 	for _index, tabID in ipairs(self:GetTabSet()) do
-		if self:GetTabButton(tabID):IsShown() then
-			self:SetTab(tabID);
-			return;
+		if self.TabIDToBankType[tabID] == "BANK" then
+			self:SetTab(tabID)
+			return
 		end
 	end
 end
@@ -105,8 +95,6 @@ end
 
 function GFW_BankFrameMixin:OnShow()
 	CallbackRegistrantMixin.OnShow(self);
-	-- OpenAllBags(self);
-	self:RefreshTabVisibility();
 	self:SelectDefaultTab();
 end
 
@@ -592,6 +580,22 @@ function GFW_BankPanelMixin:CreateCharacterMenu()
 
 end
 
+function GFW_BankPanelMixin:BankTypeForTabType(tabType)
+	local currentType = self.bankType
+	if tabType == "BANK" or tabType == "INVENTORY" or tabType == "CURRENCY" then
+		local player, realm = SplitBankType(currentType)
+		return MakeBankType(player or T.Player, realm or T.Realm, tabType)
+	elseif tabType == "GUILD_BANK" then
+		local guild, realm = SplitBankType(currentType)
+		local guildName = GetGuildInfo("player") -- TODO can return nil if too early
+		return MakeBankType(guild, realm or T.Realm, tabType)
+	elseif tabType == "WARBAND" then
+		return tabType
+	else
+		error("illegal tabType")
+	end
+end
+
 function GFW_BankPanelMixin:SetBankType(bankType)
 	self.bankType = bankType;
 	if self:IsShown() then
@@ -720,8 +724,6 @@ function GFW_BankPanelMixin:RefreshBankTabs()
 			lastBankTab = newBankTab;
 		end
 	end
-	
-	-- TODO special tab(s) for bags, inventory, currency
 end
 
 function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
