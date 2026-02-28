@@ -273,14 +273,15 @@ DB = {
 					}
 					[2] = nil, -- can be empty
 					count = 36, -- num slots
-					link = "containerHyperlink"
+					link = "containerHyperlink", -- just name not link for bank tabs
+					icon = "customIcon" -- for bank tabs only
 				},
 				[2] = nil, -- can be empty
 				-- ...
 				[6] = { -- includes bank tabs
 					-- ...
 				}
-				last = 6, -- containerID of last bag
+				last = 6, -- containerID of last bank tab
 			},
 			currency = {
 				-- TBD
@@ -290,6 +291,7 @@ DB = {
 				[1] = "itemHyperlink",
 			}
 			money = 10000, -- copper
+			updated = 1755412000, -- server time since epoch (sec)
 		}
 	}
 }	
@@ -406,17 +408,18 @@ function T.UpdateDBForBag(bagID)
 	local inventoryID = C_Container.ContainerIDToInventoryID(bagID)
 	local bagItemLink = GetInventoryItemLink("player", inventoryID)
 	
+	local dbCharacter = DB[T.Realm][T.Player]
 	-- save as empty bag slot if no bag equipped
 	if not bagItemLink then
-		DB[T.Realm][T.Player].bags[bagID] = nil
+		dbCharacter.bags[bagID] = nil
 		return
 	end
 	
 	-- otherwise save its info
-	if not DB[T.Realm][T.Player].bags[bagID] then
-		DB[T.Realm][T.Player].bags[bagID] = {}
+	if not dbCharacter.bags[bagID] then
+		dbCharacter.bags[bagID] = {}
 	end
-	local dbBag = DB[T.Realm][T.Player].bags[bagID]
+	local dbBag = dbCharacter.bags[bagID]
 	dbBag.link = bagItemLink
 	dbBag.count = C_Container.GetContainerNumSlots(bagID)
 	-- print(bagID, ":", dbBag.link, dbBag.count, "slots")
@@ -444,6 +447,8 @@ function T.UpdateDBForBag(bagID)
 			-- print("-", data.hyperlink, "x", data.stackCount)
 		end
 	end
+	
+	dbCharacter.updated = GetServerTime()
 
 end
 
@@ -452,7 +457,9 @@ function T.UpdateDBForInventory()
 end
 
 function T.UpdateDBMoney()
-	DB[T.Realm][T.Player].money = GetMoney()
+	local dbCharacter = DB[T.Realm][T.Player]
+	dbCharacter.money = GetMoney()
+	dbCharacter.updated = GetServerTime()
 end
 
 

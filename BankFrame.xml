@@ -101,12 +101,19 @@
 			<OnEnter method="OnEnter"/>
 			<OnLeave method="OnLeave"/>
 			<OnClick method="OnClick"/>
-            <!-- <OnDragStart method="OnDragStart"/>
-            <OnReceiveDrag method="OnReceiveDrag"/> -->
 		</Scripts>
 	</ItemButton>
 
 	<Frame name="GFW_BankPanelTemplate" inherits="CallbackRegistrantTemplate" mixin="GFW_BankPanelMixin" virtual="true">
+		<Layers>
+			<Layer level="BORDER">
+				<FontString parentKey="UpdatedText" inherits="GameFontDisableTiny" maxLines="1" justifyH="CENTER">
+					<Anchors>
+					<Anchor point="BOTTOM" y="10"/>
+					</Anchors>
+				</FontString>
+			</Layer>
+		</Layers>
 		<KeyValues>
 			<KeyValue key="layoutType" value="InsetFrameTemplate" type="string"/>
 		</KeyValues>

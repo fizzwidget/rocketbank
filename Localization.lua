@@ -23,6 +23,8 @@ L.ReagentTotalAndQualities = "%s: %s" -- "6: 1* 2** 3***"
 
 L.BindingToggleBank = "Toggle bank preview panel"
 
+L.Updated = "Updated: %s" -- long date+time string
+
 ------------------------------------------------------
 
 if (GetLocale() == "deDE") then

@@ -1,5 +1,6 @@
 local addonName, T = ...
 local DB = _G[addonName.."_DB"]
+local L = _G[addonName.."_Locale"].Text
 
 -- participate in synchronized inventory search
 tinsert(ITEM_SEARCHBAR_LIST, "GFW_BankItemSearchBox")
@@ -550,8 +551,25 @@ function GFW_BankPanelMixin:SelectTab(tabID)
 end
 
 function GFW_BankPanelMixin:RefreshBankPanel()
+	local player, realm = strsplit("-", self.bankType)
+	local dbCharacter = DB[realm][player]
+	local serverTimeMS = dbCharacter.updated * 1000 * 1000
+	
+	local function GetFullDate(dateInfo)
+		local weekdayName = CALENDAR_WEEKDAY_NAMES[dateInfo.weekday];
+		local monthName = CALENDAR_FULLDATE_MONTH_NAMES[dateInfo.month]
+		return weekdayName, monthName, dateInfo.monthDay, dateInfo.year
+	end
+	
+	local calendarDate = C_DateAndTime.GetCalendarTimeFromEpoch(serverTimeMS)
+	local dateText = FULLDATE:format(GetFullDate(calendarDate))
+	local timeText = GameTime_GetFormattedTime(calendarDate.hour, calendarDate.minute, true)
+	local fullDate = FULLDATE_AND_TIME:format(dateText, timeText)
+	self.UpdatedText:SetText(L.Updated:format(fullDate))
+
 	local noTabSelected = self.selectedTabID == nil;
 	if noTabSelected then
+		-- TODO display something when we have no bank data in DB
 		return;
 	end
 		
@@ -604,15 +622,17 @@ function GFW_BankPanelMixin:FetchPurchasedBankTabData()
 	local dbCharacterBags = DB[realm][player].bags
 	for bagID = ITEM_INVENTORY_BANK_BAG_OFFSET + 1, dbCharacterBags.last do
 		local bag = dbCharacterBags[bagID]
-		local link = bag.link -- is just a name if a bank bag
-		local icon = bag.icon or C_Item.GetItemIconByID(link)
-		local data = {
-			ID = bagID,
-			name = link,
-			icon = icon,
-			slots = bag.count
-		}
-		tinsert(self.purchasedBankTabData, data)
+		if bag then
+			local link = bag.link -- is just a name if a bank bag
+			local icon = bag.icon or C_Item.GetItemIconByID(link)
+			local data = {
+				ID = bagID,
+				name = link,
+				icon = icon,
+				slots = bag.count
+			}
+			tinsert(self.purchasedBankTabData, data)
+		end
 	end
 
 end
@@ -812,7 +832,7 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:DisableMoneyPopupFunctionality
 end
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:Refresh()
-	local player, realm = strsplit("-", GFW_BankPanelSystemMixin:GetActiveBankType())
+	local player, realm = strsplit("-", self:GetActiveBankType())
 	local dbCharacter = DB[realm][player]
 	
 	MoneyFrame_Update(self:GetName(), dbCharacter.money)
