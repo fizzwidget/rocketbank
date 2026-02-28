@@ -904,8 +904,6 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 		self.MissingDataText:Hide()
 	end
 	
-	-- TODO different layouts for equipped, bags
-	-- bigger todo later: combine multiple bags on one panel 
 	if tabType == TabType.Inventory then
 		if self.selectedTabID == INVENTORY_FAKE_BAGID then
 			self:GenerateEquippedItemSlots(tabData)
@@ -918,12 +916,95 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 
 end
 
+local INVSLOT_PROF0TOOL = 20
+local INVSLOT_PROF0GEAR0 = 21
+local INVSLOT_PROF0GEAR1 = 22
+local INVSLOT_PROF1TOOL = 23
+local INVSLOT_PROF1GEAR0 = 24
+local INVSLOT_PROF1GEAR1 = 25
+local INVSLOT_COOKINGTOOL = 26
+local INVSLOT_COOKINGGEAR0 = 27
+local INVSLOT_FISHINGTOOL = 28
+local INVSLOT_FISHINGGEAR0 = 29
+local INVSLOT_FISHINGGEAR1 = 30
+
+-- PaperDollFrame layout (and then some)
+local InvSlotMap = {
+	-- left column from top
+	INVSLOT_HEAD, INVSLOT_NECK, INVSLOT_SHOULDER, INVSLOT_BACK,
+	INVSLOT_CHEST, INVSLOT_BODY, INVSLOT_TABARD, INVSLOT_WRIST,
+	
+	-- right column from top
+	INVSLOT_HAND, INVSLOT_WAIST, INVSLOT_LEGS, INVSLOT_FEET,
+	INVSLOT_FINGER1, INVSLOT_FINGER2, INVSLOT_TRINKET1, INVSLOT_TRINKET2,
+	
+	-- bottom from left
+	INVSLOT_MAINHAND, INVSLOT_OFFHAND,
+	
+	-- profession 1
+	INVSLOT_PROF0GEAR0, INVSLOT_PROF0GEAR1, INVSLOT_PROF0TOOL,
+
+	-- profession 2
+	INVSLOT_PROF1GEAR0, INVSLOT_PROF1GEAR1, INVSLOT_PROF1TOOL,
+	
+	-- cooking
+	INVSLOT_COOKINGGEAR0, INVSLOT_COOKINGTOOL,
+	
+	-- fishing
+	INVSLOT_FISHINGTOOL,
+}
+
 function GFW_BankPanelMixin:GenerateEquippedItemSlots(tabData)
-	-- TEMP
-	self:GenerateBankTabItemSlots(tabData)
+	local numColumns = 2
+	local numRows = 8
+	local initialX, initialY = 26, -63
+	local xSpacing, ySpacing = 8, 8
+	local lastColumnStarterButton;
+	local lastCreatedButton;
+	local currentColumn = 1;
+
+	-- PaperDollFrame style left/right columns
+	local limit = tabData.slots
+	-- TEMP, should be numColumns * numRows before falling over into other layout for the rest
+	for layoutIndex = 1, limit do
+		local button = self.itemButtonPool:Acquire();
+			
+		local isFirstButton = layoutIndex == 1;
+		local needNewColumn = (layoutIndex % numRows) == 1;
+		if isFirstButton then
+			button:SetPoint("TOPLEFT", self, "TOPLEFT", initialX, initialY);
+			lastColumnStarterButton = button;
+		elseif needNewColumn then
+			currentColumn = currentColumn + 1;
+	
+			local xOffset, yOffset = xSpacing, 0;
+			button:SetPoint("TOPLEFT", lastColumnStarterButton, "TOPRIGHT", xOffset, yOffset);
+			lastColumnStarterButton = button;
+		else
+			local xOffset, yOffset = 0, -ySpacing;
+			button:SetPoint("TOPLEFT", lastCreatedButton, "BOTTOMLEFT", xOffset, yOffset);
+		end
+		
+		local containerSlotID = InvSlotMap[layoutIndex]
+		button:Init(self.bankType, self.selectedTabID, containerSlotID);
+		button:Show();
+	
+		lastCreatedButton = button;
+	end
+
+	-- TODO other layout for the rest
+	-- rows/groups for weapons, prof1, prof2, cooking, fishing
+	-- use Questinfo-style item buttons with labels, since there's lots of space?
 end
 
 function GFW_BankPanelMixin:GenerateBagItemSlots(tabData)
+	
+	-- TODO all bags on one tab
+	-- total width = (buttonWidth + xSpacing) * columnsPerBag * numBags
+	-- buttonWidth ~ 31 + spacing 4 for 5 bags in 700px wide (separate reagent tab)
+	-- buttonWidth ~ 24 + spacing 4 for 6 bags in 700px wide
+	-- default buttonWidth is 37
+	
 	local numColumns = 4
 	local xSpacing, ySpacing = 4, 4
 	local offsetSlots = tabData.slots % numColumns
