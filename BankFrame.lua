@@ -872,6 +872,12 @@ function GFW_BankPanelMoneyFrameMixin:OnShow()
 end
 
 function GFW_BankPanelMoneyFrameMixin:OnEnter()
+	
+	local who, realm, type = SplitBankType(self:GetActiveBankType())
+	if type == "WARBAND" then
+		return -- no extra info to add up
+	end
+
 	local function AddMoneyLine(name, money)
 		local moneyText = GetMoneyString(money, true)
 		GameTooltip_AddColoredDoubleLine(GameTooltip, name, moneyText, NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR)
@@ -934,9 +940,10 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:OnLoad()
 end
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:DisableMoneyPopupFunctionality()
-	self.CopperButton:SetScript("OnClick", nop);
-	self.SilverButton:SetScript("OnClick", nop);
-	self.GoldButton:SetScript("OnClick", nop);
+	self:EnableMouse(false)
+	self.CopperButton:EnableMouse(false)
+	self.SilverButton:EnableMouse(false)
+	self.GoldButton:EnableMouse(false)
 end
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:Refresh()
