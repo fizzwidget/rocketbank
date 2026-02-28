@@ -380,12 +380,16 @@ function T:TooltipAddCurrencyInfo(tooltip, currencyID)
                         characterName = L.PlayerRealm:format(characterName, realmName)
                     end
                     local characterLine = L.TooltipLinePlayer:format(characterName, FormatLargeNumber(amount))
-                    -- TODO add indicator if transferable
                     if characterLine then
                         GameTooltip_AddColoredLine(tooltip, characterLine, BRIGHTBLUE_FONT_COLOR)
                     end
                 end
             end
         end
+    end
+    local data = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if data.isAccountTransferable then
+        local tooltipLine = CreateAtlasMarkup("warbands-transferable-icon") .. " " .. ACCOUNT_TRANSFERRABLE_CURRENCY
+        GameTooltip_AddColoredLine(tooltip, tooltipLine, BRIGHTBLUE_FONT_COLOR)
     end
 end
