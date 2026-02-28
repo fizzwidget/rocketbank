@@ -738,26 +738,7 @@ function GFW_BankPanelMoneyFrameMixin:OnShow()
 	self:Refresh();
 end
 
-function GFW_BankPanelMoneyFrameMixin:SetEnabled(enable)
-	self:SetShown(enable);
-	self:Refresh();
-end
-
-function GFW_BankPanelMoneyFrameMixin:Refresh()
-	if not self:IsShown() then
-		return;
-	end
-
-	self:RefreshContents();
-end
-
-function GFW_BankPanelMoneyFrameMixin:RefreshContents()
-	self.MoneyDisplay:Refresh();
-end
-
-GFW_BankPanelMoneyFrameMoneyDisplayMixin = CreateFromMixins(GFW_BankPanelSystemMixin);
-
-function GFW_BankPanelMoneyFrameMoneyDisplayMixin:OnEnter()
+function GFW_BankPanelMoneyFrameMixin:OnEnter()
 	local function AddMoneyLine(name, money)
 		local moneyText = GetMoneyString(money, true)
 		GameTooltip_AddColoredDoubleLine(GameTooltip, name, moneyText, NORMAL_FONT_COLOR, HIGHLIGHT_FONT_COLOR)
@@ -789,9 +770,28 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:OnEnter()
 
 end
 
-function GFW_BankPanelMoneyFrameMoneyDisplayMixin:OnLeave()
+function GFW_BankPanelMoneyFrameMixin:OnLeave()
 	GameTooltip_Hide();
 end
+
+function GFW_BankPanelMoneyFrameMixin:SetEnabled(enable)
+	self:SetShown(enable);
+	self:Refresh();
+end
+
+function GFW_BankPanelMoneyFrameMixin:Refresh()
+	if not self:IsShown() then
+		return;
+	end
+
+	self:RefreshContents();
+end
+
+function GFW_BankPanelMoneyFrameMixin:RefreshContents()
+	self.MoneyDisplay:Refresh();
+end
+
+GFW_BankPanelMoneyFrameMoneyDisplayMixin = CreateFromMixins(GFW_BankPanelSystemMixin);
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:OnLoad()
 	SmallMoneyFrame_OnLoad(self);
@@ -807,11 +807,9 @@ function GFW_BankPanelMoneyFrameMoneyDisplayMixin:DisableMoneyPopupFunctionality
 end
 
 function GFW_BankPanelMoneyFrameMoneyDisplayMixin:Refresh()
-	-- TODO not updating when switching characters
 	local player, realm = strsplit("-", GFW_BankPanelSystemMixin:GetActiveBankType())
 	local dbCharacter = DB[realm][player]
 	
-	MoneyFrame_SetType(self, "STATIC");
-	self.staticMoney = dbCharacter.money
+	MoneyFrame_Update(self:GetName(), dbCharacter.money)
 end
 

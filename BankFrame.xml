@@ -11,20 +11,20 @@
 				</Anchors>
 			</Frame>
 
-			<Frame parentKey="MoneyDisplay" inherits="SmallMoneyFrameTemplate" mixin="GFW_BankPanelMoneyFrameMoneyDisplayMixin">
+			<Frame name="GFW_BankPanelMoneyFrameMoneyDisplay" parentKey="MoneyDisplay" inherits="SmallMoneyFrameTemplate" mixin="GFW_BankPanelMoneyFrameMoneyDisplayMixin">
 				<Anchors>
 					<Anchor point="RIGHT" relativeKey="$parent.Border"/>
 				</Anchors>
 				<Scripts>
 					<OnLoad method="OnLoad"/>
-					<OnEnter method="OnEnter"/>
-					<OnLeave method="OnLeave"/>
 				</Scripts>
 			</Frame>
 
 		</Frames>
 		<Scripts>
 			<OnShow method="OnShow"/>
+			<OnEnter method="OnEnter"/>
+			<OnLeave method="OnLeave"/>
 		</Scripts>
 	</Frame>
 
