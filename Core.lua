@@ -359,7 +359,7 @@ function T.UpdateDBForAllBags(includeBank)
 			dbBag.icon = tabData.icon
 			dbBag.link = tabData.name
 		end
-		-- TODO warbank
+		-- TODO warbank, warbank tab info
 	end
 end
 
@@ -408,8 +408,6 @@ function T.UpdateDBForBag(bagID)
 	dbBag.link = bagItemLink
 	dbBag.count = C_Container.GetContainerNumSlots(bagID)
 	-- print(bagID, ":", dbBag.link, dbBag.count, "slots")
-	
-	-- TODO: if bank / warbank tab, get/save tab info
 	
 	-- and then iterate to save its contents
 	for slot = 1, dbBag.count do
