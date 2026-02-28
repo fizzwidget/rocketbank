@@ -34,7 +34,7 @@ L.DeleteTooltip = "Delete cached data"
 -- addonName, playerName + realmName
 L.DeleteCharacter = "Delete this addon‘s data cache for the character |n%1$s?|n|n %2$s will not show information from their inventory, bank, etc until the next time you log into that character." 
 -- addonName, guildName + realmName
-L.DeleteGuild = "Delete this addon's data cache for the guild |n%1$s?|n|n %2$s will not show guild bank information until the next time you log into a character in that guild." 
+L.DeleteGuild = "Delete this addon's data cache for the guild |n%1$s?|n|n %2$s will not show guild bank information until you log into a character in that guild and visit the guild bank." 
 
 L.DeleteDone = "%s: Deleted data cache for %s" -- addonName, playerName/guildName + realmName
 
