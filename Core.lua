@@ -472,7 +472,7 @@ function Events:ACCOUNT_MONEY()
 end
 
 function Events:GUILDBANK_UPDATE_MONEY()
-	self.UpdateGuildMoney()
+	T.UpdateGuildMoney()
 end
 
 ------------------------------------------------------
