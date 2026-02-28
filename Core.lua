@@ -341,7 +341,8 @@ DB = {
 					[2] = nil, -- can be empty
 					count = 36, -- num slots
 					link = "containerHyperlink", -- just name not link for bank tabs
-					icon = "customIcon" -- for bank tabs only
+					icon = "customIcon", -- for bank tabs only
+					updated = 1755412000 -- server time (overrides character updated time because bank updates only when at bank)
 				},
 				[2] = nil, -- can be empty
 				-- ...
@@ -801,7 +802,10 @@ function T.UpdateDBForBag(bagID)
 		end
 	end
 	
-	-- TODO timestamp per bag because can't update some bags when not at bank 
+	-- timestamp per bag because can't update some bags when not at bank
+	if bagID > NUM_TOTAL_EQUIPPED_BAG_SLOTS then
+		dbBag.updated = GetServerTime()
+	end
 	dbCharacter.updated = GetServerTime()
 
 end

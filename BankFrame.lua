@@ -550,12 +550,19 @@ function GFW_BankPanelMixin:RefreshUpdatedText()
 	else
 		db = DB[realm][who]
 	end
-	if not db or not db.updated then
+	
+	local updatedTime
+	if db and type == TabType.Bank then
+		local tabID = self:GetSelectedTabID()
+		updatedTime = db.bags[tabID] and db.bags[tabID].updated
+	elseif db then
+		updatedTime = db.updated		
+	end
+	if not updatedTime then
 		self.UpdatedText:SetText(L.Updated:format(NEVER))
 		return
 	end
-	
-	local serverTimeMS = db.updated * 1000 * 1000
+	local serverTimeMS = updatedTime * 1000 * 1000
 	
 	local function GetFullDate(dateInfo)
 		local weekdayName = CALENDAR_WEEKDAY_NAMES[dateInfo.weekday];
