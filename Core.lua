@@ -327,6 +327,7 @@ function Events:PLAYER_ENTERING_WORLD()
 	T.InitializeDB()
 	T.InitializeGuild()
 	T.UpdateDBForAllBags()
+	T.UpdateDBForInventory()
 	T.UpdateDBMoney()
 	T.UpdateWarbankMoney()
 end
@@ -390,6 +391,11 @@ end
 
 function Events:BAG_UPDATE_DELAYED()
 	T.ProcessBagUpdateQueue()
+end
+
+function Events:UNIT_INVENTORY_CHANGED(unit)
+	if unit ~= "player" then return end
+	T.UpdateDBForInventory()
 end
 
 function Events:PLAYER_MONEY()
@@ -673,7 +679,7 @@ function T.UpdateDBForBag(bagID)
 	local bagItemLink = GetInventoryItemLink("player", inventoryID)
 	
 	-- save as empty bag slot if no bag equipped
-	if not bagItemLink then
+	if bagID ~= BACKPACK_CONTAINER and not bagItemLink then
 		dbCharacter.bags[bagID] = nil
 		return
 	end
@@ -711,19 +717,40 @@ function T.UpdateDBForBag(bagID)
 		end
 	end
 	
+	-- TODO timestamp per bag because can't update some bags when not at bank 
 	dbCharacter.updated = GetServerTime()
 
 end
 
+-- https://warcraft.wiki.gg/wiki/InventorySlotID
+-- 1-15+19: gear slots on sides of paperdollframe
+-- 16-18: weapon slots (offhand or ranged not both?)
+-- 20-22: profesion 0 gear
+-- 23-25: profesion 1 gear
+-- 26-27: cooking gear
+-- 28: fishing rod (29-30 unused fishing accessories)
+local MAX_INVSLOTS = 28
+
 function T.UpdateDBForInventory()
-	-- TODO gather inventory slots
-	-- https://warcraft.wiki.gg/wiki/InventorySlotID
-	-- 1-15+19: gear slots on sides of paperdollframe
-	-- 16-18: weapon slots (offhand or ranged not both?)
-	-- 20-22: profesion 0 gear
-	-- 23-25: profesion 1 gear
-	-- 26-27: cooking gear
-	-- 28: fishing rod (29-30 unused fishing accessories)
+	local dbCharacter = DB[T.Realm][T.Player]
+	if not dbCharacter.equipped then
+		dbCharacter.equipped = {}
+		-- just project a fake bag schema here for the sake of bank UI?
+		dbCharacter.equipped.count = MAX_INVSLOTS
+	end
+	
+	for inventoryID = 1, MAX_INVSLOTS do
+		local itemLink = GetInventoryItemLink("player", inventoryID)
+		if itemLink then
+			dbCharacter.equipped[inventoryID] = {
+				l = itemLink,
+			}
+		else
+			dbCharacter.equipped[inventoryID] = nil
+		end
+	end
+	
+	dbCharacter.updated = GetServerTime()
 end
 
 function T.UpdateDBMoney()
