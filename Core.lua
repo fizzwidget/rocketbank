@@ -892,6 +892,13 @@ function T.UpdateGuildMoney()
 	-- print("updated guild money", dbGuild.money)
 end
 
+function T.ProfessionName(inventoryID, character, realm)
+	local dbSlotInfo = DB[realm][character].profSlots
+	local skillLine = dbSlotInfo and dbSlotInfo[inventoryID]
+	local info = skillLine and C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLine)
+	return info and info.professionName
+end
+
 ------------------------------------------------------
 -- Item tooltip 
 ------------------------------------------------------

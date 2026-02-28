@@ -304,14 +304,10 @@ function GFW_BankPanelItemButtonMixin:OnEnter()
 			
 			-- show profession name for profession gear
 			local who, realm = SplitBankType(self.bankType)
-			local dbSlotInfo = DB[realm][who].profSlots
-			local skillLine = dbSlotInfo and dbSlotInfo[self.containerSlotID]
-			if skillLine then
-				local info = C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLine)
-				if info then
-					GameTooltip_AddHighlightLine(GameTooltip, info.professionName)
-					GameTooltip:Show()
-				end
+			local professionName = T.ProfessionName(self.containerSlotID, who, realm)
+			if professionName then
+				GameTooltip_AddHighlightLine(GameTooltip, professionName)
+				GameTooltip:Show()
 			end
 		end
 	end
@@ -493,6 +489,7 @@ function GFW_BankPanelMixin:OnLoad()
 	self.itemButtonPool = CreateFramePool("ItemButton", self, "GFW_BankItemButtonTemplate", BankItemButtonResetter);
 
 	self.selectedTabID = nil;
+	self.rowLabels = {}
 end
 
 function GFW_BankPanelMixin:OnShow()
@@ -900,6 +897,9 @@ end
 
 function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 	self.itemButtonPool:ReleaseAll();
+	for _, label in pairs(self.rowLabels) do
+		label:Hide()
+	end
 
 	if not self.selectedTabID then
 		return;
@@ -984,21 +984,22 @@ local InvSlotMap = {
 
 function GFW_BankPanelMixin:GenerateEquippedItemSlots(tabData)
 	local numColumns = 2
-	local numRows = 8
+	local numPaperDollRows = 8
 	local initialX, initialY = 26, -63
 	local xSpacing, ySpacing = 8, 8
 	local lastColumnStarterButton;
 	local lastCreatedButton;
 	local currentColumn = 1;
 
+	-- TODO Questinfo-style item buttons with labels, since there's lots of space?
+
 	-- PaperDollFrame style left/right columns
-	local limit = tabData.slots
-	-- TEMP, should be numColumns * numRows before falling over into other layout for the rest
+	local limit = INVSLOT_LAST_EQUIPPED - 1
 	for layoutIndex = 1, limit do
 		local button = self.itemButtonPool:Acquire();
 
 		local isFirstButton = layoutIndex == 1;
-		local needNewColumn = (layoutIndex % numRows) == 1;
+		local needNewColumn = (layoutIndex % numPaperDollRows) == 1;
 		if isFirstButton then
 			button:SetPoint("TOPLEFT", self, "TOPLEFT", initialX, initialY);
 			lastColumnStarterButton = button;
@@ -1020,9 +1021,61 @@ function GFW_BankPanelMixin:GenerateEquippedItemSlots(tabData)
 		lastCreatedButton = button;
 	end
 
-	-- TODO other layout for the rest
-	-- rows/groups for weapons, prof1, prof2, cooking, fishing
-	-- use Questinfo-style item buttons with labels, since there's lots of space?
+	-- layout for the rest: groups for (weapons?), prof1, prof2, cooking, fishing
+	local numRows = 1
+	local function MakeRow(label, slotIndexes, anchor)
+		local firstButton, lastButton
+		for index, containerSlotID in pairs(slotIndexes) do
+			local button = self.itemButtonPool:Acquire();
+
+			local isFirstButton = (index == 1)
+			if isFirstButton then
+				firstButton = button
+				if not anchor then
+					local xOffset, yOffset = lastColumnStarterButton:GetRight() + initialX, initialY;
+					button:SetPoint("TOPLEFT", self, "TOPLEFT", xOffset, yOffset);
+				else
+					local xOffset, yOffset = 0, -(button:GetHeight() + 2 * ySpacing)
+					button:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", xOffset, yOffset);
+				end
+			else
+				local xOffset, yOffset = xSpacing, 0;
+				button:SetPoint("TOPLEFT", lastButton, "TOPRIGHT", xOffset, yOffset);
+			end
+			
+			button:Init(self.bankType, self.selectedTabID, containerSlotID);
+			button:Show();
+		
+			lastButton = button;
+			
+			if isFirstButton and not self.rowLabels[numRows] then
+				self.rowLabels[numRows] = self:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+				self.rowLabels[numRows]:SetPoint("TOPLEFT", button, "BOTTOMLEFT", 0, -ySpacing)
+			end
+		end
+		self.rowLabels[numRows]:SetText(label)
+		self.rowLabels[numRows]:Show() -- BUG not always showing?
+		numRows = numRows + 1
+		return firstButton
+	end
+	
+	local who, realm, type = SplitBankType(self.bankType)
+	local slots = {INVSLOT_PROF0GEAR0, INVSLOT_PROF0GEAR1, INVSLOT_PROF0TOOL}
+	local name = T.ProfessionName(slots[1], who, realm)
+	local anchor = MakeRow(name, slots)
+	
+	slots = {INVSLOT_PROF1GEAR0, INVSLOT_PROF1GEAR1, INVSLOT_PROF1TOOL}
+	name = T.ProfessionName(slots[1], who, realm)
+	anchor = MakeRow(name, slots, anchor)
+		
+	slots = {INVSLOT_COOKINGGEAR0, INVSLOT_COOKINGTOOL}
+	name = PROFESSIONS_COOKING
+	anchor = MakeRow(name, slots, anchor)
+	
+	slots = {INVSLOT_FISHINGTOOL}
+	name = PROFESSIONS_FISHING
+	anchor = MakeRow(name, slots, anchor)
+	
 end
 
 function GFW_BankPanelMixin:GenerateBagItemSlots(tabData)
