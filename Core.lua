@@ -260,6 +260,11 @@ if not _G[addonName.."_DB"] then
 end
 local DB = _G[addonName.."_DB"]
 
+if not _G[addonName.."_Guild"] then
+	_G[addonName.."_Guild"] = {}
+end
+local GB = _G[addonName.."_Guild"]
+
 if not _G[addonName.."_Warband"] then
 	_G[addonName.."_Warband"] = {}
 end
@@ -300,6 +305,15 @@ DB = {
 		}
 	},
 }
+GB = {
+	[realmName] = {
+		[guildName] = {
+			bags = { ... } -- same as character bags but different IDs
+			money = 10000, -- same as character
+			updated = 1755412000, -- same as character
+		}
+	},
+}
 WB = {
 	bags = { ... } -- same as character bags but bagID 12+
 	money = 10000, -- same as character
@@ -310,9 +324,25 @@ WB = {
 
 function Events:PLAYER_ENTERING_WORLD()
 	T.InitializeDB()
+	T.InitializeGuild()
 	T.UpdateDBForAllBags()
 	T.UpdateDBMoney()
 	T.UpdateWarbankMoney()
+end
+
+function Events:GUILD_ROSTER_UPDATE()
+	T.InitializeGuild()
+	if T.Guild then
+		self:UnregisterEvent("GUILD_ROSTER_UPDATE")
+	end
+end
+
+function Events:PLAYER_GUILD_UPDATE(unit)
+	if unit ~= "player" then return end
+	T.InitializeGuild()
+	if T.Guild then
+		self:UnregisterEvent("PLAYER_GUILD_UPDATE")
+	end
 end
 
 function Events:BANKFRAME_OPENED()
@@ -322,6 +352,33 @@ end
 
 function Events:BANKFRAME_CLOSED()
 	T.BankIsOpen = false
+end
+
+function Events:PLAYER_INTERACTION_MANAGER_FRAME_SHOW(type)
+	if type == Enum.PlayerInteractionType.GuildBanker then
+		T.GuildBankIsOpen = true
+	end
+	T.InitializeGuild()
+	T.UpdateGuildMoney()
+	T.UpdateDBForGuild()
+end
+
+function Events:PLAYER_INTERACTION_MANAGER_FRAME_HIDE(type)
+	if type == Enum.PlayerInteractionType.GuildBanker then
+		T.GuildBankIsOpen = false
+	end
+end
+
+function Events:GUILDBANK_UPDATE_TABS()
+	T.UpdateDBForGuild()
+end
+
+function Events:GUILDBANKBAGSLOTS_CHANGED()
+	local numTabs = GetNumGuildBankTabs()
+	local dbGuild = GB[T.Realm][T.Guild]
+	for index = 1, numTabs do
+		T.UpdateDBForGuildTab(index)
+	end
 end
 
 T.BagUpdateQueue = {}
@@ -340,6 +397,10 @@ end
 
 function Events:ACCOUNT_MONEY()
 	T.UpdateWarbankMoney()	
+end
+
+function Events:GUILDBANK_UPDATE_MONEY()
+	self.UpdateGuildMoney()
 end
 
 function T.ProcessBagUpdateQueue()
@@ -370,6 +431,24 @@ function T.InitializeDB()
 	end
 end
 
+function T.InitializeGuild()
+	if not IsInGuild() then return end
+	local guildName = GetGuildInfo("player")
+	if not guildName then return end
+
+	T.Guild = guildName
+	
+	if not GB[T.Realm] then
+		GB[T.Realm] = {}
+	end
+	if not GB[T.Realm][T.Guild] then
+		GB[T.Realm][T.Guild] = {}
+	end
+	if not GB[T.Realm][T.Guild].bags then
+		GB[T.Realm][T.Guild].bags = {}
+	end
+end
+
 function T.UpdateDBForAllBags(includeBank)
 	for bagID = 0, NUM_TOTAL_EQUIPPED_BAG_SLOTS do
 		T.UpdateDBForBag(bagID)
@@ -395,7 +474,6 @@ function T.UpdateDBForAllBags(includeBank)
 			dbBag.icon = tabData.icon
 			dbBag.link = tabData.name
 		end
-		-- TODO warbank, warbank tab info
 		
 		for _, bagID in pairs(warbandTabIDs) do
 			T.UpdateDBForBag(bagID)	
@@ -411,6 +489,70 @@ function T.UpdateDBForAllBags(includeBank)
 		end
 
 	end
+end
+
+function T.UpdateDBForGuild()
+	if not T.GuildBankIsOpen then return end
+	T.InitializeGuild()
+
+	local dbGuild = GB[T.Realm][T.Guild]
+	local numTabs = GetNumGuildBankTabs()
+	dbGuild.bags.last = numTabs
+	
+	for index = 1, MAX_GUILDBANK_TABS do
+		if index > numTabs then
+			dbGuild.bags[index] = {}
+		else
+			local name, icon, isViewable = GetGuildBankTabInfo(index)
+			if not name or name == "" then
+				name = format(GUILDBANK_TAB_NUMBER, i)
+			end
+			if not dbGuild.bags[index] then
+				dbGuild.bags[index] = {}
+			end
+			local dbBag = dbGuild.bags[index]
+			dbBag.link = name
+			dbBag.icon = icon
+			dbBag.disabled = (not isViewable) or nil
+			
+			QueryGuildBankTab(index)
+		end
+	end
+	dbGuild.updated = GetServerTime()
+end
+
+local MAX_GUILDBANK_SLOTS_PER_TAB = 98
+function T.UpdateDBForGuildTab(tabIndex)
+	local dbGuild =  GB[T.Realm][T.Guild]
+	local dbBag = dbGuild.bags[tabIndex]
+	assert(dbBag)
+	
+	-- print("Guild bank tab", tabIndex)
+	dbBag.count = MAX_GUILDBANK_SLOTS_PER_TAB
+	for slot = 1, dbBag.count do
+		local link = GetGuildBankItemLink(tabIndex, slot)
+		if link then
+			local _, count = GetGuildBankItemInfo(tabIndex, slot)
+			-- minimal item info for minimal memory usage
+			dbBag[slot] = {
+				l = link,
+				c = count > 1 and count or nil
+			}
+			
+			-- if it's a crafting reagent
+			-- make sure we know all three qualities of the same reagent
+			local itemID = GetItemInfoFromHyperlink(link)
+			local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemID)
+			if quality then
+				T.CacheReagentQualityItems(itemID)
+			end
+			
+			-- print("-", slot, ":", link, "x", count)
+		else
+			dbBag[slot] = nil
+		end
+	end
+	dbGuild.updated = GetServerTime()
 end
 
 function T.BagIDIsBankType(bagID, bankType)
@@ -435,7 +577,7 @@ function T.UpdateDBForBag(bagID)
 		end
 	end 
 
-	if T.BagIDIsBankType(bagID, Enum.BankType.Guild) then
+	if T.BagIDIsBankType(bagID, Enum.BankType.Guild) then -- unused?
 		-- print("don't save guild bank", bagID) -- for now
 		-- it'll need different storage so it's not repeated across characters
 		return
@@ -516,7 +658,12 @@ function T.UpdateWarbankMoney()
 end
 
 function T.UpdateGuildMoney()
-	-- C_Bank.FetchDepositedMoney(Enum.BankType.Guild)
+	if not T.GuildBankIsOpen then return end
+	T.InitializeGuild()
+	local dbGuild = GB[T.Realm][T.Guild]
+	dbGuild.money = GetGuildBankMoney()
+	dbGuild.updated = GetServerTime()
+	-- print("updated guild money", dbGuild.money)
 end
 
 ------------------------------------------------------

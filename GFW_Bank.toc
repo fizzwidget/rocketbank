@@ -6,7 +6,7 @@
 ## Category: Inventory
 ## IconTexture: Interface/Icons/ability_racial_timeismoney
 ## AddonCompartmentFunc: GFW_Bank_OnAddonCompartmentClick
-## SavedVariables: GFW_Bank_Settings, GFW_Bank_DB, GFW_Bank_Warband, GFW_Bank_ReagentQualityCache
+## SavedVariables: GFW_Bank_Settings, GFW_Bank_DB, GFW_Bank_Guild, GFW_Bank_Warband, GFW_Bank_ReagentQualityCache
 ## LoadSavedVariablesFirst: 1
 
 # core
