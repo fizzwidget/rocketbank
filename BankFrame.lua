@@ -1294,6 +1294,11 @@ function GFW_BankPanelMoneyFrameMixin:OnEnter()
 end
 
 function GFW_BankPanelMoneyFrameMixin:OnLeave()
+	GameTooltipTextRight1:SetFontObject(GameTooltipHeaderText)
+	for i = 2, GameTooltip:NumLines() do
+		local text = _G["GameTooltipTextRight"..i]
+		text:SetFontObject(GameTooltipText)
+	end
 	GameTooltip_Hide();
 end
 
