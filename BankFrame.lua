@@ -544,6 +544,54 @@ function GFW_BankPanelMixin:GetSelectedTabData()
 	return self:GetTabData(self.selectedTabID);
 end
 
+function GFW_BankPanelMixin:CreateCharacterMenu()
+	-- this list should be constant within session, so only create it once
+	if self.characterMenu then return end
+	
+	-- menu entry for current player character always comes first
+	self.characterList = { {T.Player, MakeBankType(T.Player, T.Realm)} }
+	
+	local function listCharactersInRealm(realmName, dbRealm)
+		for characterName in pairs(dbRealm) do
+			if not (characterName == T.Player and realmName == T.Realm) then
+				local displayName = characterName
+				if realmName ~= T.Realm then
+					displayName = L.PlayerRealm:format(characterName, realmName)
+				end
+				tinsert(self.characterList, {displayName, MakeBankType(characterName, realmName)})
+			end
+		end
+	end
+	
+	-- next comes list other characters on same realm
+	local dbRealm = DB[T.Realm]
+	listCharactersInRealm(T.Realm, dbRealm)
+	
+	-- skip current player character and realm to make rest of the list
+	for realmName, dbRealm in pairs(DB) do
+		if realmName ~= T.Realm then
+			listCharactersInRealm(realmName, dbRealm)
+		end
+	end
+		
+	self.characterMenu = CreateFrame("DropdownButton", nil, self, "WowStyle1DropdownTemplate")
+	self.characterMenu:SetDefaultText(T.Player)
+	self.characterMenu:SetPoint("BOTTOMLEFT", 2, 3)
+	self.characterMenu:SetWidth(180)
+	
+	local function isSelected(characterInfo)
+		local selectedPlayer, selectedRealm = SplitBankType(characterInfo)
+		local player, realm = SplitBankType(self.bankType)
+		return selectedRealm == realm and selectedPlayer == player
+	end
+	local function setSelected(characterInfo)
+		self:SetBankType(strjoin("|", characterInfo, "BANK"))
+	end
+	-- TODO don't do the convenience version; use AddInitializer to highlight search results
+	MenuUtil.CreateRadioMenu(self.characterMenu, isSelected, setSelected, unpack(self.characterList))
+
+end
+
 function GFW_BankPanelMixin:SetBankType(bankType)
 	self.bankType = bankType;
 	if self:IsShown() then
@@ -611,6 +659,7 @@ function GFW_BankPanelMixin:Reset()
 	self:UpdateSearchResults()
 	self:RefreshBankTabs();
 	self:RefreshBankPanel();
+	self:CreateCharacterMenu()
 	self:RequestTitleRefresh();
 	ItemButtonUtil.TriggerEvent(ItemButtonUtil.Event.ItemContextChanged);
 end
