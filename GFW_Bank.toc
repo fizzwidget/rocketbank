@@ -5,7 +5,7 @@
 ## Notes: Keeps track of all your characters' stuff.
 ## Category: Inventory
 ## IconTexture: Interface/Icons/ability_racial_timeismoney
-## SavedVariables: GFW_Bank_Settings, GFW_Bank_DB
+## SavedVariables: GFW_Bank_Settings, GFW_Bank_DB, GFW_Bank_ReagentQualityCache
 ## LoadSavedVariablesFirst: 1
 
 # core

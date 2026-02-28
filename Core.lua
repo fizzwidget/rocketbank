@@ -86,6 +86,133 @@ function T.CharacterItemCount(itemID, dbCharacter)
 	
 	return bagCount, bankCount
 end
+
+------------------------------------------------------
+-- Crafting Reagent Quality
+------------------------------------------------------
+
+if not _G[addonName.."_ReagentQualityCache"] then
+	_G[addonName.."_ReagentQualityCache"] = {}
+end
+local RQ = _G[addonName.."_ReagentQualityCache"]
+
+-- TEST TEMP
+local ProblematicItemIDs = {
+   [189143] = 1, [188658] = 1, [190311] = 1, --Draconium Ore
+   [190395] = 1, [190396] = 1, [190394] = 1, --Serevite Ore 
+   [192852] = 1, [192853] = 1, [192855] = 1, --Alexstraszite
+   [192862] = 1, [192863] = 1, [192865] = 1, --Neltharite
+   [193208] = 1, [193210] = 1, [193211] = 1, --Resilient Leather
+   [194817] = 1, [194819] = 1, [194820] = 1  --Howling Rune
+}
+
+function FindTest()
+   for k in pairs(ProblematicItemIDs) do
+	  print(FindAllReagentQualityItems(k))
+   end
+end
+
+function FindTestAsync()
+   for k in pairs(ProblematicItemIDs) do
+	  FindReagentQualityAsync(k)
+   end
+end
+
+function CacheTest()
+   for k in pairs(ProblematicItemIDs) do
+	  CacheReagentQualityItems(k)
+   end
+end
+-- END TEST TEMP
+
+local ITEM_INFO_RETRY_DELAY = 1.0
+T.ReagentQualityQueue = {}
+function CacheReagentQualityItems(itemID)
+	if RQ[itemID] then
+		local name, link = C_Item.GetItemInfo(itemID)
+		print("already cached", link, unpack(RQ[itemID]))
+		T.ReagentQualityQueue[itemID] = nil
+		return
+	end
+	local qualities = {FindAllReagentQualityItems(itemID)}
+	if qualities[1] and qualities[2] and qualities[3] then
+		RQ[qualities[1]] = qualities
+		RQ[qualities[2]] = qualities
+		RQ[qualities[3]] = qualities
+		
+		local name, link = C_Item.GetItemInfo(itemID)
+		print("cached", link, unpack(qualities))
+		T.ReagentQualityQueue[itemID] = nil
+	else
+		print("queued check for", itemID)
+		T.ReagentQualityQueue[itemID] = 1
+		if not T.ReagentQualityRetryTimer then
+			T.ReagentQualityRetryTimer = C_Timer.NewTicker(ITEM_INFO_RETRY_DELAY, T.ProcessReagentQualityQueue)
+		end
+	end
+end
+
+function T.ProcessReagentQualityQueue(timer)
+	local count = 0
+	for itemID in pairs(T.ReagentQualityQueue) do
+		count = count + 1
+		CacheReagentQualityItems(itemID)
+	end
+	if count == 0 then
+		print("queue empty, canceling timer")
+		T.ReagentQualityRetryTimer:Cancel()
+		T.ReagentQualityRetryTimer = nil
+	else
+		print("queue processed", count)
+	end
+end
+
+function FindAllReagentQualityItems(itemID)
+	local name, link = C_Item.GetItemInfo(itemID)
+	local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemID)
+	-- print("finding qualities for", itemID, name, quality)
+	if not name then return end
+	
+	local items = { [quality] = itemID }
+	local MAX_TRIES = 2000
+	
+	local function TestItem(id)
+		local testName, testLink = C_Item.GetItemInfo(id)
+		-- print(testName)
+		if testName and testName == name then
+			local testQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(id)
+			-- print(id, testName, "testQuality", testQuality)
+			if testQuality and testQuality ~= quality then
+				items[testQuality] = id
+			end
+		end
+	end
+	
+	-- first search in ascending itemID order from the one we started with
+	do 
+		-- print("searching greater")
+		local testID = itemID
+		repeat
+			testID = testID + 1
+			TestItem(testID)
+			if testID - itemID > MAX_TRIES then break end
+		until items[1] and items[2] and items[3]
+	end
+
+	-- if we don't have them all, search in descending itemID order from start
+	if not (items[1] and items[2] and items[3]) then 
+		-- print("searching lesser")
+		local testID = itemID
+		repeat
+			testID = testID - 1
+			TestItem(testID)
+			if itemID - testID > MAX_TRIES then break end
+		until items[3] and items[2] and items[1]
+	end
+	
+	return items[1], items[2], items[3]
+end
+
 ------------------------------------------------------
 -- Save items
 ------------------------------------------------------
