@@ -486,6 +486,7 @@ function GFW_BankPanelMixin:OnLoad()
 	self.bankTabPool = CreateFramePool("BUTTON", self, "GFW_BankPanelTabTemplate");
 
 	local function BankItemButtonResetter(itemButtonPool, itemButton)
+		itemButton:SetScale(1.0)
 		itemButton.isInitialized = false;
 		Pool_HideAndClearAnchors(itemButtonPool, itemButton);
 	end
@@ -932,6 +933,8 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 	if tabType == TabType.Inventory then
 		if self.selectedTabID == INVENTORY_FAKE_BAGID then
 			self:GenerateEquippedItemSlots(tabData)
+		elseif T.BagsOnOnePage then
+			self:GenerateAllBagsItemSlots()
 		else
 			self:GenerateBagItemSlots(tabData)
 		end
@@ -993,7 +996,7 @@ function GFW_BankPanelMixin:GenerateEquippedItemSlots(tabData)
 	-- TEMP, should be numColumns * numRows before falling over into other layout for the rest
 	for layoutIndex = 1, limit do
 		local button = self.itemButtonPool:Acquire();
-			
+
 		local isFirstButton = layoutIndex == 1;
 		local needNewColumn = (layoutIndex % numRows) == 1;
 		if isFirstButton then
@@ -1023,13 +1026,6 @@ function GFW_BankPanelMixin:GenerateEquippedItemSlots(tabData)
 end
 
 function GFW_BankPanelMixin:GenerateBagItemSlots(tabData)
-	
-	-- TODO all bags on one tab
-	-- total width = (buttonWidth + xSpacing) * columnsPerBag * numBags
-	-- buttonWidth ~ 31 + spacing 4 for 5 bags in 700px wide (separate reagent tab)
-	-- buttonWidth ~ 24 + spacing 4 for 6 bags in 700px wide
-	-- default buttonWidth is 37
-	
 	local numColumns = 4
 	local xSpacing, ySpacing = 4, 4
 	local offsetSlots = tabData.slots % numColumns
@@ -1071,6 +1067,78 @@ function GFW_BankPanelMixin:GenerateBagItemSlots(tabData)
 	end
 end
 
+
+-- 0.85 fits 5 bags in ~700 px wide (need separate reagent tab or scrolling?)
+-- can't get much bigger without needing more vertical space for 36 slot bags
+-- 0.71 fits 6 bags in ~700 px but 24px-ish slots are super tiny
+GFW_BankPanelMixin.itemButtonScale = 0.71
+function GFW_BankPanelMixin:GenerateAllBagsItemSlots()
+		
+	local who, realm, type = SplitBankType(self.bankType)
+	dbBags = DB[realm][who].bags
+
+	local numColumns = 4
+	local xSpacing, ySpacing = 4, 4
+	local lastBagTopRightButton
+	for bagID = 0, NUM_TOTAL_EQUIPPED_BAG_SLOTS do
+		local dbBag = dbBags[bagID]
+		if dbBag then
+			local offsetSlots = dbBag.count % numColumns
+			local lastRowStarterButton;
+			local lastCreatedButton;
+			local currentRow = 1;
+			for containerSlotID = 1, dbBag.count do
+				-- TODO different button pool so we don't have to reset scale
+				local button = self.itemButtonPool:Acquire();
+				button:SetScale(self.itemButtonScale)
+				
+				local isFirstBag = bagID == 0
+				local isFirstButton = containerSlotID == 1;
+				local needNewRow = ((containerSlotID + offsetSlots) % numColumns) == 1;
+				if isFirstBag and isFirstButton then
+					self.firstBagButton = button
+					local xOffset, yOffset = 14, -110;
+					if currentRow == 1 then
+						-- bags with a less-than-full row indent it to the right
+						xOffset = xOffset + (xSpacing + button:GetWidth()) * offsetSlots
+					end
+					button:SetPoint("TOPLEFT", self, "TOPLEFT", currentRow * xOffset, yOffset);
+					lastRowStarterButton = button;
+				elseif isFirstButton then
+					local xOffset, yOffset = 10, 0;
+					if currentRow == 1 then
+						-- bags with a less-than-full row indent it to the right
+						xOffset = xOffset + (xSpacing + button:GetWidth()) * offsetSlots
+					end
+					button:SetPoint("TOPLEFT", lastBagTopRightButton, "TOPRIGHT", currentRow * xOffset, yOffset);
+					lastRowStarterButton = button;
+				elseif needNewRow then
+					if currentRow == 1 then
+						lastBagTopRightButton = lastCreatedButton
+					end
+					currentRow = currentRow + 1;
+			
+					local xOffset, yOffset = 0, -ySpacing;
+					if currentRow == 2 then
+						-- if first row was less-than-full, outdent back to normal for the rest
+						xOffset = xOffset - (xSpacing + button:GetWidth()) * offsetSlots
+					end
+					button:SetPoint("TOPLEFT", lastRowStarterButton, "BOTTOMLEFT", xOffset, yOffset);
+					lastRowStarterButton = button;
+				else
+					local xOffset, yOffset = xSpacing, 0;
+					button:SetPoint("TOPLEFT", lastCreatedButton, "TOPRIGHT", xOffset, yOffset);
+				end
+				
+				button:Init(self.bankType, bagID, containerSlotID);
+				button:Show();
+			
+				lastCreatedButton = button;
+			end
+		end
+	end
+end
+
 -- unchanged from bliz bank
 function GFW_BankPanelMixin:GenerateBankTabItemSlots(tabData)
 	local numRows = 7;
@@ -1080,7 +1148,7 @@ function GFW_BankPanelMixin:GenerateBankTabItemSlots(tabData)
 	local currentColumn = 1;
 	for containerSlotID = 1, tabData.slots do
 		local button = self.itemButtonPool:Acquire();
-			
+
 		local isFirstButton = containerSlotID == 1;
 		local needNewColumn = (containerSlotID % numRows) == 1;
 		if isFirstButton then
@@ -1216,12 +1284,13 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 	end
 	
 	-- search inactive bank/bag tabs in current type+realm+player/guild
+	-- TODO this needs different way to iterate for all bags on one tab (because one tab for all bags)
 	local dbBags = BagCollection(currentWho, currentRealm, currentTabType)
 	for _, tabData in ipairs(self.purchasedBankTabData) do
 		tabData.hasMatch = nil
 		if pattern ~= "" and tabData.ID ~= self:GetSelectedTabID() then
 			local dbBag = dbBags[tabData.ID]
-			if currentTabType == TabType.Inventory and bagID == INVENTORY_FAKE_BAGID then
+			if currentTabType == TabType.Inventory and tabData.ID == INVENTORY_FAKE_BAGID then
 				dbBag = DB[currentRealm][currentWho].equipped
 			end
 			assert(dbBag)
