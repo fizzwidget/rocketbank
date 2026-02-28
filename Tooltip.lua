@@ -93,6 +93,10 @@ if not _G[addonName.."_ReagentQualityCache"] then
     _G[addonName.."_ReagentQualityCache"] = {}
 end
 local RQ = _G[addonName.."_ReagentQualityCache"]
+if not _G[addonName.."_QualityIcons"] then
+    _G[addonName.."_QualityIcons"] = {}
+end
+local QualityIcons = _G[addonName.."_QualityIcons"]
 
 local ITEM_INFO_RETRY_DELAY = 1.0
 T.ReagentQualityQueue = {}
@@ -112,12 +116,10 @@ function T.CacheReagentQualityItems(itemID)
         end
         return
     end
+    local qualityInfo = C_TradeSkillUI.GetItemReagentQualityInfo(itemID)
     local name, link = info[1], info[2]
-    local isReagent = info[17]
-    if name and not isReagent then
+    if name and not qualityInfo then
         -- print(itemID, name, link, "not a reagent with quality levels")
-        -- TODO find crafted consumables with quality too
-        -- probably needs a different way to restrict which items we check
         T.ReagentQualityQueue[itemID] = nil
         return
     end
@@ -155,9 +157,13 @@ end
 
 function T.FindAllReagentQualityItems(itemID)
     local name, link = T.GetItemInfo(itemID)
-    local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemID)
     -- print("finding qualities for", itemID, name, quality)
     if not name then return end
+    
+    local info = C_TradeSkillUI.GetItemReagentQualityInfo(itemID)
+    local quality = info and info.quality 
+    assert(quality, "expected non-nil quality table")
+    QualityIcons[quality] = CreateAtlasMarkup(info.iconChat, 17, 15, 1, 0)
     
     local items = { [quality] = itemID }
     local MAX_TRIES = 2000
@@ -281,13 +287,6 @@ function T:TooltipAddItemInfo(tooltip, itemID)
 
 end
 
-T.ReagentQualityIcon = setmetatable({}, {
-    __index = function(t, index)
-        local icon = C_Texture.GetCraftingReagentQualityChatIcon(index)
-        rawset(t, index, icon)
-        return icon
-    end
-})
 function T:TooltipAddReagentInfo(tooltip, itemID)
     local function Summary(counts, counts2)
         local strings = {}
@@ -295,7 +294,7 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
         for quality, count in pairs(counts) do
             local count2 = counts2 and counts2[quality] or 0
             if count > 0 or count2 > 0 then
-                tinsert(strings, count + count2 .. T.ReagentQualityIcon[quality])
+                tinsert(strings, count + count2 .. QualityIcons[quality])
                 total = total + count + count2
             end
         end
