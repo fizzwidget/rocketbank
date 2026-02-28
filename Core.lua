@@ -244,7 +244,9 @@ TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, T.OnTooltipSe
 
 function T:TooltipAddItemInfo(tooltip, itemID)
 	function TooltipLine(name, inBags, inBank)
-		if inBank > 0 then
+		if inBank > 0 and inBags == 0 then
+			return L.TooltipLineBankOnly:format(name, inBank)
+		elseif inBank > 0 then
 			return L.TooltipLinePlayerBank:format(name, inBags + inBank, inBank)
 		elseif inBags > 0 then
 			return L.TooltipLinePlayer:format(name, inBags)

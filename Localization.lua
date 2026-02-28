@@ -18,6 +18,7 @@ local T = Locale.SettingTooltip
 
 L.TooltipLinePlayer = "%s has %d"
 L.TooltipLinePlayerBank = "%s has %d (%d in bank)"
+L.TooltipLineBankOnly = "%s has %d (in bank)"
 
 ------------------------------------------------------
 
