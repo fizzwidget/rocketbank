@@ -24,6 +24,13 @@ end })
 local Events = T.EventHandlers
 
 ------------------------------------------------------
+-- Basic data
+------------------------------------------------------
+
+T.Realm = strtrim(GetRealmName())
+T.Player = UnitName("player")
+
+------------------------------------------------------
 -- Utilities
 ------------------------------------------------------
 
@@ -297,8 +304,6 @@ function T.ProcessBagUpdateQueue()
 end
 
 function T.InitializeDB()
-	T.Realm = strtrim(GetRealmName())
-	T.Player = UnitName("player")
 
 	if not DB[T.Realm] then
 		DB[T.Realm] = {}
@@ -325,6 +330,14 @@ function T.UpdateDBForAllBags(includeBank)
 			T.UpdateDBForBag(bagID)	
 		end
 		
+		-- bags already saved, update info for bank-tab bags
+		local data = C_Bank.FetchPurchasedBankTabData(Enum.BankType.Character)
+		for _, tabData in pairs(data) do
+			local dbBag = DB[T.Realm][T.Player].bags[tabData.ID]
+			assert(dbBag, "should have been created already")
+			dbBag.icon = tabData.icon
+			dbBag.link = tabData.name
+		end
 		-- TODO warbank
 	end
 end
