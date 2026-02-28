@@ -499,7 +499,7 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
 		elseif #strings == 1 then
 			return total, strings[1]
 		else
-			return total, L.ReagentTotalAndQualities:format(total, table.concat(strings, " "))
+			return total, L.ReagentTotalAndQualities:format(total, table.concat(strings))
 		end
 	end
 	local function TooltipLine(name, inBags, inBank)
@@ -529,7 +529,7 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
 				
 		local playerLine = TooltipLine(T.Player, inBags, inBank)
 		if playerLine then
-			GameTooltip_AddColoredLine(tooltip, playerLine, BRIGHTBLUE_FONT_COLOR)
+			GameTooltip_AddColoredLine(tooltip, playerLine, BRIGHTBLUE_FONT_COLOR, false)
 		end
 	end
 	
@@ -547,7 +547,7 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
 				
 				local characterLine = TooltipLine(characterName, inBags, inBank)
 				if characterLine then
-					GameTooltip_AddColoredLine(tooltip, characterLine, BRIGHTBLUE_FONT_COLOR)
+					GameTooltip_AddColoredLine(tooltip, characterLine, BRIGHTBLUE_FONT_COLOR, false)
 				end
 			end
 		end
@@ -557,7 +557,7 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
 	local totalWarband, warbandSummary = Summary(inWarband)
 	if totalWarband > 0 then
 		local warbandLine = L.TooltipLinePlayer:format(ACCOUNT_BANK_PANEL_TITLE, warbandSummary)
-		GameTooltip_AddColoredLine(tooltip, warbandLine, BRIGHTBLUE_FONT_COLOR)
+		GameTooltip_AddColoredLine(tooltip, warbandLine, BRIGHTBLUE_FONT_COLOR, false)
 	end
 end
 
