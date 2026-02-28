@@ -96,17 +96,37 @@ if not _G[addonName.."_ReagentQualityCache"] then
 end
 local RQ = _G[addonName.."_ReagentQualityCache"]
 
+local function pack(...)
+	return { n = select("#", ...), ... } 
+end
+	
+T.ItemInfo = setmetatable({}, {
+	__index = function(t, index)
+		local info = pack(C_Item.GetItemInfo(index))
+		if #info > 1 then
+			rawset(t, index, info)
+			return info
+		end
+	end,
+})
+function T.GetItemInfo(itemID)
+	local info = T.ItemInfo[itemID]
+	if info then
+		return unpack(info)
+	end
+end
+
 local ITEM_INFO_RETRY_DELAY = 1.0
 T.ReagentQualityQueue = {}
 function T.CacheReagentQualityItems(itemID)
 	if RQ[itemID] then
-		-- local name, link = C_Item.GetItemInfo(itemID)
+		-- local name, link = T.GetItemInfo(itemID)
 		-- print("already cached", itemID, link, unpack(RQ[itemID]))
 		T.ReagentQualityQueue[itemID] = nil
 		return
 	end
-	local info = {C_Item.GetItemInfo(itemID)}
-	if not info then
+	local info = {T.GetItemInfo(itemID)}
+	if #info == 0 then
 		-- print("missing info, queued check for", itemID, quality)
 		T.ReagentQualityQueue[itemID] = 1
 		if not T.ReagentQualityRetryTimer then
@@ -116,8 +136,8 @@ function T.CacheReagentQualityItems(itemID)
 	end
 	local name, link = info[1], info[2]
 	local isReagent = info[17]
-	if not isReagent then
-		-- print(itemID, link, "not a reagent with quality levels")
+	if name and not isReagent then
+		-- print(itemID, name, link, "not a reagent with quality levels")
 		T.ReagentQualityQueue[itemID] = nil
 		return
 	end
@@ -153,8 +173,8 @@ function T.ProcessReagentQualityQueue(timer)
 	end
 end
 
-function T.FindAllReagentQualityItems(itemID, quality)
-	local name, link = C_Item.GetItemInfo(itemID)
+function T.FindAllReagentQualityItems(itemID)
+	local name, link = T.GetItemInfo(itemID)
 	local quality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(itemID)
 	-- print("finding qualities for", itemID, name, quality)
 	if not name then return end
@@ -163,7 +183,7 @@ function T.FindAllReagentQualityItems(itemID, quality)
 	local MAX_TRIES = 2000
 	
 	local function TestItem(id)
-		local testName, testLink = C_Item.GetItemInfo(id)
+		local testName, testLink = T.GetItemInfo(id)
 		-- print(testName)
 		if testName and testName == name then
 			local testQuality = C_TradeSkillUI.GetItemReagentQualityByItemInfo(id)
