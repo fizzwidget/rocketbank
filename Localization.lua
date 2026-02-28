@@ -28,7 +28,8 @@ L.BindingToggleBank = "Toggle bank preview panel"
 
 L.Updated = "Updated: %s" -- long date+time string
 L.NotInGuild = "(%s — no guild)" -- playerName
-
+L.MissingBank = "No bank data cached for %1$s.|n|n %2$s will not show bank information until that character visits the bank." 
+L.MissingGuild = "No guild bank data cached for %1$s.|n|n %2$s will not show guild bank information until a character that guild visits the guild bank."
 L.DeleteTooltip = "Delete cached data"
 
 -- addonName, playerName + realmName

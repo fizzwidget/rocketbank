@@ -47,7 +47,7 @@ local function CompareCharacters(a, b)
 	
 	local aData = DB[aRealm][aName]
 	local bData = DB[bRealm][bName]
-	return aData.updated > bData.updated
+	return (aData.updated or math.huge) > (bData.updated or math.huge)
 end
 
 local function CompareGuilds(a, b)
@@ -63,7 +63,7 @@ local function CompareGuilds(a, b)
 	
 	local aData = GB[aRealm][aName]
 	local bData = GB[bRealm][bName]
-	return aData.updated > bData.updated
+	return (aData.updated or math.huge) > (bData.updated or math.huge)
 end
 
 local function DisplayName(name, realmName)
@@ -763,7 +763,6 @@ function GFW_BankPanelMixin:RefreshBankPanel()
 	
 	local noTabSelected = self.selectedTabID == nil;
 	if noTabSelected then
-		-- TODO display something when we have no bank data in DB
 		return;
 	end
 		
@@ -880,8 +879,30 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 		return;
 	end
 
+	local who, realm, tabType = SplitBankType(self.bankType)
+	
 	local tabData = self:GetSelectedTabData()
-	if not tabData then return end
+	if not tabData then 
+		if not self.MissingDataText then
+			self.MissingDataText = self:CreateFontString(nil, nil, "GameFontNormal")
+			self.MissingDataText:SetJustifyH("CENTER")
+			self.MissingDataText:SetPoint("CENTER")
+			self.MissingDataText:SetWidth(450)
+			self.MissingDataText:SetWordWrap(true)
+			
+			local text
+			if tabType == TabType.Guild then
+				text = L.MissingGuild:format(DisplayName(who, realm), T.Title)
+			else
+				text = L.MissingBank:format(DisplayName(who, realm), T.Title)
+			end
+			self.MissingDataText:SetText(text)
+		end
+		self.MissingDataText:Show()
+		return
+	elseif self.MissingDataText then
+		self.MissingDataText:Hide()
+	end
 	
 	-- TODO different layouts for equipped, bags
 	
@@ -922,6 +943,10 @@ function GFW_BankPanelMixin:GenerateItemSlotsForSelectedTab()
 
 		lastCreatedButton = button;
 	end
+end
+
+function GFW_BankPanelMixin:GenerateBankTabItemSlots(tabData)
+	
 end
 
 function GFW_BankPanelMixin:UpdateSearchResults()
