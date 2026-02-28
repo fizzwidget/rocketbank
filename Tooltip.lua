@@ -32,26 +32,27 @@ function T.PlayerItemCount(itemID)
     return inBags, inBank, inWarband
 end
 
-function T.CharacterItemCount(itemID, dbCharacter)
-    local function CountInBag(dbBag)
-        local count = 0
-        for slot = 1, dbBag.count or 0 do
-            local bagItemInfo = dbBag[slot]
-            if bagItemInfo then
-                local bagItemID = GetItemInfoFromHyperlink(bagItemInfo.l)
-                if bagItemID == itemID then
-                    count = count + (bagItemInfo.c or 1)
-                end	
-            end
+local function CountInBag(itemID, dbBag)
+    local count = 0
+    for slot = 1, dbBag.count or 0 do
+        local bagItemInfo = dbBag[slot]
+        if bagItemInfo then
+            local bagItemID = GetItemInfoFromHyperlink(bagItemInfo.l)
+            if bagItemID == itemID then
+                count = count + (bagItemInfo.c or 1)
+            end	
         end
-        return count
     end
+    return count
+end
+
+function T.CharacterItemCount(itemID, dbCharacter)
     -- check character's bags
     local bagCount = 0
     for bagID = 0, NUM_TOTAL_EQUIPPED_BAG_SLOTS do
         local bag = dbCharacter.bags[bagID]
         if bag then
-            bagCount = bagCount + CountInBag(bag)
+            bagCount = bagCount + CountInBag(itemID, bag)
         end
     end
     -- check character's bank
@@ -59,17 +60,29 @@ function T.CharacterItemCount(itemID, dbCharacter)
     for bagID = ITEM_INVENTORY_BANK_BAG_OFFSET + 1, dbCharacter.bags.last or 0 do
         local bag = dbCharacter.bags[bagID]
         if bag then
-            bankCount = bankCount + CountInBag(bag)
+            bankCount = bankCount + CountInBag(itemID, bag)
         end
     end
 
     -- check character's equipped inventory
     -- add it to bagCount, because that's what GetItemCount does for current player
     if dbCharacter.equipped then
-        bagCount = bagCount + CountInBag(dbCharacter.equipped)
+        bagCount = bagCount + CountInBag(itemID, dbCharacter.equipped)
     end
     
     return bagCount, bankCount
+end
+
+function T.GuildItemCount(itemID, dbGuild)
+    -- check character's bags
+    local bagCount = 0
+    for bagID = 0, dbGuild.bags.last or 0 do
+        local bag = dbGuild.bags[bagID]
+        if bag then
+            bagCount = bagCount + CountInBag(itemID, bag)
+        end
+    end    
+    return bagCount
 end
 
 ------------------------------------------------------
@@ -253,8 +266,8 @@ function T:TooltipAddItemInfo(tooltip, itemID)
     if T.Settings.GuildTooltip then
         for realmName, dbRealm in pairs(GB) do
             for guildName, dbGuild in pairs(dbRealm) do
-                local inGuildBank = T.CharacterItemCount(itemID, dbGuild)
-                    if inGuildBank > 0 then
+                local inGuildBank = T.GuildItemCount(itemID, dbGuild)
+                if inGuildBank > 0 then
                     local formattedName = ("<%s>"):format(guildName)
                     if realmName ~= T.Realm then
                         formattedName = L.PlayerRealm:format(formattedName, realmName)
