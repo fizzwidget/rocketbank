@@ -4,9 +4,11 @@
 
 ## Introduction
 
-<<Clever intro pending>>
+There's a lot of stuff for an adventurer to keep track of these days, huh? Especially when you and your pals really get going with those "warband" timeshare deals. That's where this amazing gadget comes in! 
 
-Built with spare parts from official bank machinery certified by the Undermine Cartels, the Stormwind Counting House, and the Horde Treasury -- so it's familiar and easy to use, and easy to keep compatible as those systems change!
+Legitimately acquired Titan memory crystals remember all the fancy swag you're holding or wearing, or dumping in bank storage, and every kind of moolah you could ever want to count. See it all with refurbished mechagnome holo-projectors (and a salvaged Kaheti shadecaster or two for that sweet purple loot). And when your shift is done and it's time for your warbuddy to clock in, totally safe supersonic rocket boosters zip it right to wherever they are, so they can know all about your haul.
+
+Plus: With spare parts from official bank machinery (certified by the Undermine Cartels, the Stormwind Counting House, and the Silvermoon Treasury), it's easy to use, and easy to keep compatible as those systems change!
 
 ## Features
 
@@ -23,7 +25,7 @@ Built with spare parts from official bank machinery certified by the Undermine C
     - Search field integrated with base UI bank/bag search, searches across characters
     - Open the bank panel with `/bank`, minimap addon compartment, or key binding
     
-- Is neither a conspiracy to embezzle from faction governments nor a rocketway construction scheme to exploit settlers looking for housing in new lands
+- Is neither a conspiracy to embezzle from faction governments nor a rocketway construction scheme to exploit settlers looking for housing
 
 ## Version History
 
