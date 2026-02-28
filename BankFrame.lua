@@ -1148,6 +1148,10 @@ function GFW_BankPanelMixin:UpdateSearchResults()
 				last = NUM_TOTAL_EQUIPPED_BAG_SLOTS
 			elseif tabType == TabType.Guild then
 				first = 1
+				if not dbBags or not dbBags.last then
+					-- haven't seen guild bank
+					return
+				end
 			else
 				first = ITEM_INVENTORY_BANK_BAG_OFFSET + 1
 			end
