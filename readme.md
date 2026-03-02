@@ -29,6 +29,6 @@ Plus: With spare parts from official bank machinery (certified by the Undermine 
 
 ## Version History
 
-### v. 11.xxxx - 2025/xxxx/xxxx
+### v. 12.0 - 2026/03/01
 
 - Initial release
