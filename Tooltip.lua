@@ -98,7 +98,15 @@ if not _G[addonName.."_QualityIcons"] then
 end
 local QualityIcons = _G[addonName.."_QualityIcons"]
 
-local ITEM_INFO_RETRY_DELAY = 1.0
+local function QualityCount(expansion)
+    if expansion >= LE_EXPANSION_MIDNIGHT then
+        return 2
+    else
+        return 3
+    end
+end
+
+local ITEM_INFO_RETRY_DELAY = 0.1
 T.ReagentQualityQueue = {}
 function T.CacheReagentQualityItems(itemID)
     if RQ[itemID] then
@@ -117,22 +125,24 @@ function T.CacheReagentQualityItems(itemID)
         return
     end
     local qualityInfo = C_TradeSkillUI.GetItemReagentQualityInfo(itemID)
-    local name, link = info[1], info[2]
+    local name, link, expansion = info[1], info[2], info[15]
     if name and not qualityInfo then
         -- print(itemID, name, link, "not a reagent with quality levels")
         T.ReagentQualityQueue[itemID] = nil
         return
     end
-    local qualities = {T.FindAllReagentQualityItems(itemID)}
-    if qualities[1] and qualities[2] and qualities[3] then
-        RQ[qualities[1]] = qualities
-        RQ[qualities[2]] = qualities
-        RQ[qualities[3]] = qualities
-        
+    local qualities = T.FindAllReagentQualityItems(itemID)
+    
+    local qualityCount = QualityCount(expansion)
+    if CountTable(qualities) == qualityCount then
+        for i = 1, qualityCount do
+            RQ[qualities[i]] = qualities
+        end
         -- print("cached", link, unpack(qualities))
         T.ReagentQualityQueue[itemID] = nil
     else
-        -- print("can't find qualities, queued check for", itemID, quality)
+        -- print(itemID, name, quality, "found", CountTable(qualities), "/", qualityCount, "queued recheck")
+        -- DevTools_Dump(qualities)
         T.ReagentQualityQueue[itemID] = 1
         if not T.ReagentQualityRetryTimer then
             T.ReagentQualityRetryTimer = C_Timer.NewTicker(ITEM_INFO_RETRY_DELAY, T.ProcessReagentQualityQueue)
@@ -141,32 +151,36 @@ function T.CacheReagentQualityItems(itemID)
 end
 
 function T.ProcessReagentQualityQueue(timer)
-    local count = 0
+    local count = CountTable(T.ReagentQualityQueue)
     for itemID in pairs(T.ReagentQualityQueue) do
-        count = count + 1
+        -- dumb way to pop one per timer callback
         T.CacheReagentQualityItems(itemID)
+        break
     end
     if count == 0 then
         -- print("queue empty, canceling timer")
         T.ReagentQualityRetryTimer:Cancel()
         T.ReagentQualityRetryTimer = nil
     else
-        -- print("queue processed", count)
+        -- print("queue processed, remaining:", count)
     end
 end
 
 function T.FindAllReagentQualityItems(itemID)
-    local name, link = T.GetItemInfo(itemID)
-    -- print("finding qualities for", itemID, name, quality)
-    if not name then return end
+    local itemInfo = {T.GetItemInfo(itemID)}
+    if #itemInfo == 0 then return end
+    local name, link, expansion = itemInfo[1], itemInfo[2], itemInfo[15]
     
     local info = C_TradeSkillUI.GetItemReagentQualityInfo(itemID)
     local quality = info and info.quality 
+    local qualityCount = QualityCount(expansion)
+    -- print("finding qualities for", itemID, name, quality, "expansion", expansion, "expects", qualityCount, "qualities")
     assert(quality, "expected non-nil quality table")
+    -- BUG cache icons per xpac (and don't recache)
     QualityIcons[quality] = CreateAtlasMarkup(info.iconChat, 17, 15, 1, 0)
     
     local items = { [quality] = itemID }
-    local MAX_TRIES = 2000
+    local MAX_TRIES = 3500 -- Weavercloth 1 = 224828, Weavercloth 2 = 228232; diff of 3404
     
     local function TestItem(id)
         local testName, testLink = T.GetItemInfo(id)
@@ -188,21 +202,21 @@ function T.FindAllReagentQualityItems(itemID)
             testID = testID + 1
             TestItem(testID)
             if testID - itemID > MAX_TRIES then break end
-        until items[1] and items[2] and items[3]
+        until CountTable(items) == qualityCount
     end
 
     -- if we don't have them all, search in descending itemID order from start
-    if not (items[1] and items[2] and items[3]) then 
+    if CountTable(items) ~= qualityCount then 
         -- print("searching lesser")
         local testID = itemID
         repeat
             testID = testID - 1
             TestItem(testID)
             if itemID - testID > MAX_TRIES then break end
-        until items[3] and items[2] and items[1]
+        until CountTable(items) == qualityCount
     end
     
-    return items[1], items[2], items[3]
+    return items
 end
 
 ------------------------------------------------------
@@ -322,6 +336,7 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
         end
     end
     
+    -- BUG handle variable expected # of reagent qualities per xpac
     -- itemIDs for all qualities of the same reagent
     local quality1, quality2, quality3 = unpack(RQ[itemID])
     
