@@ -93,10 +93,10 @@ if not _G[addonName.."_ReagentQualityCache"] then
     _G[addonName.."_ReagentQualityCache"] = {}
 end
 local RQ = _G[addonName.."_ReagentQualityCache"]
-if not _G[addonName.."_QualityIcons"] then
-    _G[addonName.."_QualityIcons"] = {}
+if not _G[addonName.."_QualityIconsByXpac"] then
+    _G[addonName.."_QualityIconsByXpac"] = {}
 end
-local QualityIcons = _G[addonName.."_QualityIcons"]
+local QualityIcons = _G[addonName.."_QualityIconsByXpac"]
 
 local function QualityCount(expansion)
     if expansion >= LE_EXPANSION_MIDNIGHT then
@@ -176,8 +176,14 @@ function T.FindAllReagentQualityItems(itemID)
     local qualityCount = QualityCount(expansion)
     -- print("finding qualities for", itemID, name, quality, "expansion", expansion, "expects", qualityCount, "qualities")
     assert(quality, "expected non-nil quality table")
-    -- BUG cache icons per xpac (and don't recache)
-    QualityIcons[quality] = CreateAtlasMarkup(info.iconChat, 17, 15, 1, 0)
+    
+    -- cache icons per xpac (and don't recache)
+    if not QualityIcons[expansion] then
+        QualityIcons[expansion] = {}
+    end
+    if not QualityIcons[expansion][quality] then
+        QualityIcons[expansion][quality] = CreateAtlasMarkup(info.iconChat, 17, 15, 1, 0)
+    end
     
     local items = { [quality] = itemID }
     local MAX_TRIES = 3500 -- Weavercloth 1 = 224828, Weavercloth 2 = 228232; diff of 3404
@@ -303,13 +309,17 @@ function T:TooltipAddItemInfo(tooltip, itemID)
 end
 
 function T:TooltipAddReagentInfo(tooltip, itemID)
+    
+    local expansion = select(15, T.GetItemInfo(itemID))
+    local icons = QualityIcons[expansion]
+
     local function Summary(counts, counts2)
         local strings = {}
         local total = 0
         for quality, count in pairs(counts) do
             local count2 = counts2 and counts2[quality] or 0
             if count > 0 or count2 > 0 then
-                tinsert(strings, count + count2 .. QualityIcons[quality])
+                tinsert(strings, count + count2 .. icons[quality])
                 total = total + count + count2
             end
         end
@@ -336,17 +346,28 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
         end
     end
     
-    -- BUG handle variable expected # of reagent qualities per xpac
-    -- itemIDs for all qualities of the same reagent
-    local quality1, quality2, quality3 = unpack(RQ[itemID])
+    -- itemIDs for all qualities of the same reagent    
+    local itemIDsPerQuality = RQ[itemID]
+    
+    -- make sure we have icons for qualities
+    local qualityCount = QualityCount(expansion)
+    if not icons or CountTable(icons) < qualityCount then
+        QualityIcons[expansion] = {}
+        icons = QualityIcons[expansion]
+        for quality, itemID in pairs(itemIDsPerQuality) do
+            local info = C_TradeSkillUI.GetItemReagentQualityInfo(itemID)        
+            QualityIcons[expansion][quality] = CreateAtlasMarkup(info.iconChat, 17, 15, 1, 0)
+        end
+        -- print("(re)cached icons for", expansion, table.concat(icons))
+    end
     
     local inWarband = {}
     do -- check current player's total in bags, in bank, in warbank with API
         local inBags, inBank = {}, {}
-        inBags[1], inBank[1], inWarband[1] = T.PlayerItemCount(quality1)
-        inBags[2], inBank[2], inWarband[2] = T.PlayerItemCount(quality2)
-        inBags[3], inBank[3], inWarband[3] = T.PlayerItemCount(quality3)
-                
+        for quality, itemID in pairs(itemIDsPerQuality) do
+            inBags[quality], inBank[quality], inWarband[quality] = T.PlayerItemCount(itemID)
+        end
+        
         local playerLine = TooltipLine(T.Player, inBags, inBank)
         if playerLine then
             GameTooltip_AddColoredLine(tooltip, playerLine, BRIGHTBLUE_FONT_COLOR, false)
@@ -361,9 +382,9 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
                     characterName = L.PlayerRealm:format(characterName, realmName)
                 end
                 local inBags, inBank = {}, {}, {}
-                inBags[1], inBank[1] = T.CharacterItemCount(quality1, dbCharacter)
-                inBags[2], inBank[2] = T.CharacterItemCount(quality2, dbCharacter)
-                inBags[3], inBank[3] = T.CharacterItemCount(quality3, dbCharacter)	
+                for quality, itemID in pairs(itemIDsPerQuality) do
+                    inBags[quality], inBank[quality] = T.CharacterItemCount(itemID, dbCharacter)
+                end
                 
                 local characterLine = TooltipLine(characterName, inBags, inBank)
                 if characterLine then
@@ -388,9 +409,9 @@ function T:TooltipAddReagentInfo(tooltip, itemID)
                 local inGuildBank = T.GuildItemCount(itemID, dbGuild)
                 
                 local inGuildBank = {}
-                inGuildBank[1] = T.CharacterItemCount(quality1, dbGuild)
-                inGuildBank[2] = T.CharacterItemCount(quality2, dbGuild)
-                inGuildBank[3] = T.CharacterItemCount(quality3, dbGuild)	
+                for quality, itemID in pairs(itemIDsPerQuality) do
+                    inGuildBank[quality] = T.CharacterItemCount(itemID, dbGuild)
+                end
 
                 local formattedName = ("<%s>"):format(guildName)
                 if realmName ~= T.Realm then
