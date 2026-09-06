@@ -259,7 +259,6 @@ function Events:PLAYER_ENTERING_WORLD()
 	T.InitializeDB()
 	T.InitializeGuild()
 	T.UpdateDBForAllBags()
-	T.UpdateDBForInventory()
 	T.UpdateDBMoney()
 	T.UpdateWarbankMoney()
 	T.UpdateDBProfessions()
@@ -325,6 +324,11 @@ end
 
 function Events:BAG_UPDATE_DELAYED()
 	T.ProcessBagUpdateQueue()
+end
+
+function Events:UNIT_MODEL_CHANGED(unitID)
+	if not unitID == "player" then return end
+	T.UpdateDBForInventory()
 end
 
 function Events:PLAYER_EQUIPMENT_CHANGED(equipmentSlot, hasCurrent)
