@@ -29,6 +29,14 @@ Plus: With spare parts from official bank machinery (certified by the Undermine 
 
 ## Version History
 
+### v. 12.1 - 2026/10/27
+
+- Updated TOC for WoW Patch 12.1.5
+- Fixed issues related to Midnight reagents:
+    - Less performance impact from caching reagent quality info (on first login, opening bank, etc)
+    - Item tooltips for Midight reagents correctly show other qualities of the same item
+- Fixed disappearance of equipped inventory (caused by recording those slots as empty due to reading them too early during login since WoW Patch 12.1)
+
 ### v. 12.0 - 2026/03/01
 
 - Initial release
