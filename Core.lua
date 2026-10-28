@@ -324,6 +324,7 @@ end
 
 function Events:BAG_UPDATE_DELAYED()
 	T.ProcessBagUpdateQueue()
+	T.UpdateDBForInventory() -- extra just because we don't always catch it otherwise
 end
 
 function Events:UNIT_MODEL_CHANGED(unitID)
